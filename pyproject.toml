@@ -1,0 +1,20 @@
+[project]
+name = "nes-lter-mcp"
+version = "0.1.0"
+description = "MCP server for interacting with the NES-LTER API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "mcp>=1.0,<2.0",
+]
+
+[project.scripts]
+nes-lter-mcp = "main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["main"]
