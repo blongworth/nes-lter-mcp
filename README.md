@@ -27,14 +27,41 @@ uv --directory /path/to/nes-lter-mcp run nes-lter-mcp
 - `find_cruises(year, season?, cruise_type?)` — CTD cruises by date/season/type.
 - `list_casts(cruise_name, station?, max_distance_km?, offset?, limit?)` — bounded cast discovery.
 - `get_cast_profile(cruise_name, cast_number, variable, include_points?, depth_min?, depth_max?)` — one profile.
-- `query_ctd(...)` — batch CTD query; compact summaries by default, with bounded concurrency.
+- `query_ctd(...)` — batch CTD query with `surface_definition` (`shallowest_valid`, `mean_0_5m`, `mean_0_10m`, or `mean_0_20m`) and optional `depth_bin_m`.
 - `get_station_profile(...)` — compatibility wrapper around `query_ctd`.
+- `plot_ctd_profiles(...)` — plotting-ready CTD records plus a Vega-Lite vertical-profile specification. Supports one or multiple `variables`, and `aggregation=none`, `cruise_mean`, or `period_mean`.
 - `list_dataset_rows(dataset, cruise_name, ...)` — underway, bottles, bottle summaries, nutrients, HPLC, chlorophyll, events, and event history.
 - `get_cruise_track(cruise_name)` — track URL and provenance.
+- `get_cruise_track_data(cruise_name)` — GeoJSON cruise track built from cast positions.
+- `make_station_map(stations?, cruises?, include_tracks?)` — station GeoJSON and a Vega-Lite map specification.
 - `get_dataset_schema(dataset, cruise_name)` — available columns or API schema.
 - `resolve_variable(name, cruise_name?, dataset?)` — friendly-name resolution.
 
 The `nes-lter://stations` and `nes-lter://variable-aliases` MCP resources provide stable reference context.
+
+## Plot viewer
+
+`web/nes-lter-vega-plot.js` defines a reusable `<nes-lter-vega-plot>` browser component. The component accepts the `vega_lite` object returned by `plot_ctd_profiles`:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<script type="module" src="./nes-lter-vega-plot.js"></script>
+<nes-lter-vega-plot id="plot"></nes-lter-vega-plot>
+<script>
+  document.querySelector("#plot").spec = plot_result.vega_lite;
+</script>
+```
+
+To view the included Spring 2025 L8 oxygen demonstration:
+
+```bash
+cd web
+python3 -m http.server 8080
+```
+
+Open <http://localhost:8080/demo.html>. The `nes-lter://vega-lite-viewer` MCP resource exposes the component source to compatible clients.
 
 Common variables include `oxygen`, `temperature`, `salinity`, `density`, `fluorescence`, and `par`. Raw CTD column names like `sbox0mm_kg` are also accepted.
 
@@ -46,4 +73,6 @@ Set `NES_LTER_API_BASE_URL` to override the API base URL. Defaults to `https://n
 
 `NES_LTER_CACHE_TTL` controls the in-memory cache duration in seconds (default 900), and `NES_LTER_MAX_CONCURRENCY` controls concurrent API requests (default 8).
 
-For efficient interaction, use `query_ctd(..., include_points=false)` first, then request full points for selected casts. All data responses include `source_url` and `retrieved_at`.
+For efficient interaction, use `query_ctd(..., include_points=false)` first, then request full points for selected casts. For plots, prefer `plot_ctd_profiles` because it returns compact plotting data and a Vega-Lite spec. For maps, use GeoJSON from `make_station_map` or `get_cruise_track_data`. All data responses include `source_url` and `retrieved_at`.
+
+To plot multiple variables together, pass `variables=["sbeox0ml_l", "t090c"]`; the Vega-Lite result overlays them on one chart with a shared depth axis and independent x-scales, which avoids conflating their units. Use `width` and `height` to control the returned chart dimensions.

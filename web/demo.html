@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NES-LTER profile plot</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <script type="module" src="./nes-lter-vega-plot.js"></script>
+    <style>
+      body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #17324d; font: 16px system-ui, sans-serif; }
+      h1 { margin-bottom: 0.25rem; }
+      p { color: #526579; }
+      nes-lter-vega-plot { display: block; min-height: 380px; }
+    </style>
+  </head>
+  <body>
+    <h1>NES-LTER L8 profile</h1>
+    <p>AR88 cast 17 · Spring 2025 · 5 m depth bins · dissolved oxygen and temperature</p>
+    <nes-lter-vega-plot id="profile-plot"></nes-lter-vega-plot>
+
+    <script>
+      const plot = document.querySelector("#profile-plot");
+      const depths = [2.5, 7.5, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5, 42.5, 47.5, 52.5, 57.5, 62.5, 67.5, 72.5, 77.5, 82.5, 87.5, 92.5, 97.5, 102.5, 107.5, 112.5, 117.5, 122.5, 127.5, 132.5];
+      const oxygen = [7.1267, 7.1368, 7.1178, 7.1281, 7.1331, 7.0048, 6.8319, 6.7524, 6.6339, 6.5005, 6.3798, 6.1656, 6.0494, 5.9466, 5.7352, 5.4834, 5.2980, 5.1660, 5.0876, 5.0014, 4.5761, 4.1218, 4.0221, 4.0014, 3.9220, 3.7537, 3.7051];
+      const temperature = [7.6589, 7.6615, 7.6495, 7.5844, 7.1638, 6.1266, 5.7088, 5.6377, 5.6149, 5.7273, 5.9200, 6.2662, 6.8301, 7.2302, 7.7298, 8.0852, 8.0473, 8.1758, 8.1320, 8.2099, 8.5130, 9.0153, 9.0938, 9.1258, 9.3635, 9.7908, 9.8009];
+      const values = depths.flatMap((depth, i) => [
+        {depth_m: depth, variable: "Dissolved oxygen (mL/L)", value: oxygen[i]},
+        {depth_m: depth, variable: "Temperature (°C)", value: temperature[i]}
+      ]);
+      plot.spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 500,
+        "height": 325,
+        "data": {"values": values},
+        "layer": [
+          {"transform": [{"filter": {"field": "variable", "equal": "Dissolved oxygen (mL/L)"}}], "mark": {"type": "line", "color": "#0072B2"}, "encoding": {"x": {"field": "value", "type": "quantitative", "title": "Dissolved oxygen (mL/L)"}, "y": {"field": "depth_m", "type": "quantitative", "title": "Depth (m)", "scale": {"reverse": true}}, "order": {"field": "depth_m", "type": "quantitative", "sort": "ascending"}, "tooltip": ["variable", "depth_m", "value"]}},
+          {"transform": [{"filter": {"field": "variable", "equal": "Temperature (°C)"}}], "mark": {"type": "line", "color": "#D55E00"}, "encoding": {"x": {"field": "value", "type": "quantitative", "title": "Temperature (°C)"}, "y": {"field": "depth_m", "type": "quantitative", "scale": {"reverse": true}}, "order": {"field": "depth_m", "type": "quantitative", "sort": "ascending"}, "tooltip": ["variable", "depth_m", "value"]}}
+        ],
+        "resolve": {"scale": {"x": "independent"}}
+      };
+    </script>
+  </body>
+</html>
