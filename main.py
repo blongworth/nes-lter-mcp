@@ -212,14 +212,29 @@ async def list_stations(refresh: bool = False) -> dict[str, Any]:
     return {**_source(path), "count": len(rows), "stations": rows}
 
 
+def _cruise_matches(cruise: dict[str, Any], year: int | None, season: str | None, cruise_type: str | None) -> bool:
+    start = _parse_time(cruise.get("start_time"))
+    if year is not None:
+        if start is None or not _in_season(start, year, season):
+            return False
+    elif season:
+        months = SEASONS.get(season.lower())
+        if months is None:
+            raise ValueError(f"Unknown season {season!r}; use winter, spring, summer, or fall")
+        if start is None or start.month not in months:
+            return False
+    return not cruise_type or cruise.get("type", "").lower() == cruise_type.lower()
+
+
 @mcp.tool()
-async def find_cruises(year: int, season: str | None = None, cruise_type: str | None = "NES-LTER", refresh: bool = False) -> dict[str, Any]:
-    """Find cruises by year, meteorological season, and type."""
-    cruises = []
-    for cruise in await _all_cruises(refresh):
-        start = _parse_time(cruise.get("start_time"))
-        if start and _in_season(start, year, season) and (not cruise_type or cruise.get("type", "").lower() == cruise_type.lower()):
-            cruises.append(cruise)
+async def find_cruises(year: int | None = None, season: str | None = None, cruise_type: str | None = None, refresh: bool = False) -> dict[str, Any]:
+    """Return the full CTD cruise catalog or filter it by year, season, and type.
+
+    With no filters this mirrors /api/ctd/cruises/all, including cruises of all
+    types and the API fields name, vessel_name, type, start_time, and end_time.
+    If season is supplied without year, it matches that season across all years.
+    """
+    cruises = [cruise for cruise in await _all_cruises(refresh) if _cruise_matches(cruise, year, season, cruise_type)]
     return {"year": year, "season": season, "cruise_type": cruise_type, "count": len(cruises), "cruises": cruises, **_source("/api/ctd/cruises/all")}
 
 

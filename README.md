@@ -24,7 +24,7 @@ uv --directory /path/to/nes-lter-mcp run nes-lter-mcp
 ## Tools
 
 - `list_stations()` — station catalog with coordinates, depth, and provenance.
-- `find_cruises(year, season?, cruise_type?)` — CTD cruises by date/season/type.
+- `find_cruises(year?, season?, cruise_type?)` — full CTD cruise catalog when unfiltered, or cruises filtered by year/season/type. Results preserve the API fields from `/api/ctd/cruises/all`.
 - `list_casts(cruise_name, station?, max_distance_km?, offset?, limit?)` — bounded cast discovery.
 - `get_cast_profile(cruise_name, cast_number, variable, include_points?, depth_min?, depth_max?)` — one profile.
 - `query_ctd(...)` — batch CTD query with `surface_definition` (`shallowest_valid`, `mean_0_5m`, `mean_0_10m`, or `mean_0_20m`) and optional `depth_bin_m`.
