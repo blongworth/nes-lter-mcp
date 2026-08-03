@@ -75,4 +75,26 @@ Set `NES_LTER_API_BASE_URL` to override the API base URL. Defaults to `https://n
 
 For efficient interaction, use `query_ctd(..., include_points=false)` first, then request full points for selected casts. For plots, prefer `plot_ctd_profiles` because it returns compact plotting data and a Vega-Lite spec. For maps, use GeoJSON from `make_station_map` or `get_cruise_track_data`. All data responses include `source_url` and `retrieved_at`.
 
+## Query benchmarks
+
+`benchmarks/bench_queries.py` compares MCP tool latency with an equivalent direct NES-LTER API workflow. It records elapsed time, response size, row count, errors, median, and p95 summaries as JSON Lines:
+
+```bash
+uv run python benchmarks/bench_queries.py --warmups 2 --repetitions 10 --mode both --output benchmark-results.jsonl
+```
+
+Use `--mode mcp` or `--mode direct` to run one side only. Add `--mode all` for the optional bare-LLM comparison:
+
+```bash
+export LLM_API_KEY=...
+export LLM_MODEL=gpt-4o-mini
+export LLM_INPUT_USD_PER_1M=0
+export LLM_OUTPUT_USD_PER_1M=0
+uv run python benchmarks/bench_queries.py --mode all --repetitions 10 --output benchmark-results.jsonl
+```
+
+The bare-LLM condition receives only the API base URL and a few endpoint paths. The model produces an API plan without MCP tools, then the harness executes the allowlisted direct API workflow and returns the same profile rows. Its elapsed time therefore includes model planning plus API retrieval. LLM rows include total latency, separate model/API timings, token usage, and estimated cost when both pricing environment variables are set.
+
+`--mode all` also includes a `codex` condition. It launches `codex exec --json` in an isolated temporary directory with user configuration, rules, and MCP settings excluded. Codex must retrieve the same structured data using read-only API requests. Use `--codex-sandbox read-only` by default; the Codex CLI must be installed and authenticated. Offline checks are in `tests/test_bench_queries.py`.
+
 To plot multiple variables together, pass `variables=["sbeox0ml_l", "t090c"]`; the Vega-Lite result overlays them on one chart with a shared depth axis and independent x-scales, which avoids conflating their units. Use `width` and `height` to control the returned chart dimensions.
