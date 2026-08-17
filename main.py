@@ -154,6 +154,24 @@ def _paginate(rows: list[dict[str, Any]], offset: int, limit: int) -> tuple[list
     return selected, len(rows) > max(0, offset) + len(selected)
 
 
+POINT_COUNT_WARNING_THRESHOLD = 2000
+
+
+def _truncation_note(shown: int, total: int, param: str = "limit") -> str | None:
+    if shown >= total:
+        return None
+    return f"Showing {shown} of {total} available; increase {param} (or narrow the query) to see more."
+
+
+def _point_count_note(point_count: int) -> str | None:
+    if point_count <= POINT_COUNT_WARNING_THRESHOLD:
+        return None
+    return (
+        f"{point_count} points returned; consider include_points=False, a surface_definition, "
+        "or depth_bin_m to reduce response size."
+    )
+
+
 def _validate_surface_definition(value: str) -> str:
     valid = {"none", "shallowest_valid", "mean_0_5m", "mean_0_10m", "mean_0_20m"}
     if value not in valid:
@@ -177,6 +195,22 @@ def _surface_summary(points: list[dict[str, Any]], value_column: str, definition
         "depth_m": [min(point["depth_m"] for point in selected), max(point["depth_m"] for point in selected)],
         "sample_count": len(selected),
     }
+
+
+async def _gather_partial(items: list[Any], coro_factory: Any, label: Any) -> tuple[list[tuple[Any, Any]], list[str]]:
+    """Run coro_factory(item) concurrently; one item's failure doesn't drop the rest.
+
+    Returns (successes, errors) where successes pairs each item with its result and
+    errors are human-readable "<label>: <exception>" strings for failed items.
+    """
+    results = await asyncio.gather(*[coro_factory(item) for item in items], return_exceptions=True)
+    successes, errors = [], []
+    for item, result in zip(items, results):
+        if isinstance(result, Exception):
+            errors.append(f"{label(item)}: {result}")
+        else:
+            successes.append((item, result))
+    return successes, errors
 
 
 def _bin_points(points: list[dict[str, Any]], value_column: str, bin_size_m: float | None) -> list[dict[str, Any]]:
@@ -256,7 +290,8 @@ async def list_casts(cruise_name: str, station: str | None = None, max_distance_
     """List casts, optionally restricted to the nearest standard station."""
     rows = await _matching_casts(cruise_name, station, max_distance_km)
     selected, has_more = _paginate(rows, offset, limit)
-    return {"cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "casts": selected, **_source(f"/api/ctd/metadata/{quote(cruise_name, safe='')}.csv")}
+    notes = [note for note in (_truncation_note(len(selected), len(rows), "limit/offset"),) if note]
+    return {"cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "notes": notes, "casts": selected, **_source(f"/api/ctd/metadata/{quote(cruise_name, safe='')}.csv")}
 
 
 async def _cast_profile(
@@ -319,13 +354,27 @@ async def _query_ctd(
         raise ValueError("Provide cruise_name or year")
     _validate_surface_definition(surface_definition)
     cruises = [{"name": cruise_name}] if cruise_name else (await find_cruises(year or datetime.now(timezone.utc).year, season, cruise_type, refresh))["cruises"]
-    cast_groups = await asyncio.gather(*[_matching_casts(c["name"], station, max_distance_km) for c in cruises])
-    targets = [(c["name"], cast) for c, casts in zip(cruises, cast_groups) for cast in casts]
+    cast_results, cast_errors = await _gather_partial(cruises, lambda c: _matching_casts(c["name"], station, max_distance_km), lambda c: c["name"])
+    targets = [(cruise["name"], cast) for cruise, casts in cast_results for cast in casts]
+    total_casts = len(targets)
     targets = targets[:max(1, min(limit, 1000))]
-    profiles = await asyncio.gather(*[_cast_profile(name, str(cast["cast"]), variable, include_points, depth_min, depth_max, surface_definition, depth_bin_m) for name, cast in targets])
-    for profile, (_, cast) in zip(profiles, targets):
+    profile_results, profile_errors = await _gather_partial(
+        targets,
+        lambda target: _cast_profile(target[0], str(target[1]["cast"]), variable, include_points, depth_min, depth_max, surface_definition, depth_bin_m),
+        lambda target: f"{target[0]} cast {target[1]['cast']}",
+    )
+    profiles = []
+    for (_, cast), profile in profile_results:
         profile["station_match"] = cast
-    return {"station": station.upper() if station else None, "variable": variable, "year": year, "season": season, "surface_definition": surface_definition, "depth_bin_m": depth_bin_m, "profile_count": len(profiles), "truncated": len(targets) < sum(len(group) for group in cast_groups), "profiles": profiles, **_source("/api/ctd/cast/{cruise}/{cast}.csv")}
+        profiles.append(profile)
+    errors = cast_errors + profile_errors
+    point_count = sum(profile.get("point_count", 0) for profile in profiles)
+    notes = [note for note in (
+        _truncation_note(len(targets), total_casts, "limit"),
+        _point_count_note(point_count) if include_points else None,
+        f"{len(errors)} cast(s) failed to load and were skipped; see errors." if errors else None,
+    ) if note]
+    return {"station": station.upper() if station else None, "variable": variable, "year": year, "season": season, "surface_definition": surface_definition, "depth_bin_m": depth_bin_m, "profile_count": len(profiles), "point_count": point_count, "truncated": len(targets) < total_casts or bool(errors), "notes": notes, "errors": errors, "profiles": profiles, **_source("/api/ctd/cast/{cruise}/{cast}.csv")}
 
 
 @mcp.tool()
@@ -435,6 +484,8 @@ async def plot_ctd_profiles(
                 **({"color": {"value": colors[index % len(colors)]}} if len(requested_variables) > 1 else {}),
             },
         })
+    notes = list(dict.fromkeys(note for result in results for note in result.get("notes", [])))
+    errors = list(dict.fromkeys(error for result in results for error in result.get("errors", [])))
     return {
         "chart_type": "vertical_profile",
         "station": station.upper() if station else None,
@@ -444,6 +495,8 @@ async def plot_ctd_profiles(
         "aggregation": aggregation,
         "surface_definition": surface_definition,
         "row_count": len(rows),
+        "notes": notes,
+        "errors": errors,
         "data": rows,
         "vega_lite": {
             "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
@@ -486,7 +539,8 @@ async def list_dataset_rows(dataset: str, cruise_name: str, station: str | None 
             continue
         filtered.append(row)
     selected, has_more = _paginate(filtered, offset, limit)
-    return {"dataset": dataset, "cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "rows": selected, **_source(path)}
+    notes = [note for note in (_truncation_note(len(selected), len(filtered), "limit/offset"),) if note]
+    return {"dataset": dataset, "cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "notes": notes, "rows": selected, **_source(path)}
 
 
 @mcp.tool()
@@ -545,13 +599,16 @@ async def make_station_map(stations: list[str] | None = None, cruises: list[str]
         properties = {"station": name, "depth_m": _float(_row_value(row, "depth_m", "depth")), "comment": _row_value(row, "comment", "comments")}
         station_features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [longitude, latitude]}, "properties": properties})
         map_rows.append({"station": name, "latitude": latitude, "longitude": longitude, "depth_m": properties["depth_m"]})
-    track_results = await asyncio.gather(*[get_cruise_track_data(cruise) for cruise in (cruises or [])]) if include_tracks and cruises else []
-    track_features = [feature for result in track_results for feature in result["geojson"]["features"]]
+    track_results, track_errors = await _gather_partial(cruises or [], get_cruise_track_data, lambda cruise: cruise) if include_tracks and cruises else ([], [])
+    track_features = [feature for _, result in track_results for feature in result["geojson"]["features"]]
+    notes = [f"{len(track_errors)} cruise track(s) failed to load and were skipped; see errors."] if track_errors else []
     return {
         "format": "GeoJSON",
         "geojson": {"type": "FeatureCollection", "features": track_features + station_features},
         "station_count": len(station_features),
         "cruise_count": len(cruises or []),
+        "notes": notes,
+        "errors": track_errors,
         "vega_lite": {
             "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
             "description": "NES-LTER standard stations",
