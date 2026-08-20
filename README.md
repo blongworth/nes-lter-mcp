@@ -31,11 +31,12 @@ uv --directory /path/to/nes-lter-mcp run nes-lter-mcp
 - `get_station_profile(...)` — compatibility wrapper around `query_ctd`.
 - `plot_ctd_profiles(...)` — plotting-ready CTD records plus a Vega-Lite vertical-profile specification. Supports one or multiple `variables`, and `aggregation=none`, `cruise_mean`, or `period_mean`.
 - `list_dataset_rows(dataset, cruise_name, ...)` — underway, bottles, bottle summaries, nutrients, HPLC, chlorophyll, events, and event history.
+- `query_underway(variable, cruise_name?, year?, season?, cruise_type?, aggregation?, start_time?, end_time?, ...)` — vessel-aware underway query (wind, temperature, salinity, position, speed, etc.) across Endeavor, Neil Armstrong, Atlantis, Hugh R. Sharp, and Atlantic Explorer's differing column conventions, with `aggregation=cruise_mean` (default), `period_mean`, or `none`. Directional variables (`wind_direction`, `heading`, `course_over_ground`) use a circular mean.
 - `get_cruise_track(cruise_name)` — track URL and provenance.
 - `get_cruise_track_data(cruise_name)` — GeoJSON cruise track built from cast positions.
 - `make_station_map(stations?, cruises?, include_tracks?)` — station GeoJSON and a Vega-Lite map specification.
 - `get_dataset_schema(dataset, cruise_name)` — available columns or API schema.
-- `resolve_variable(name, cruise_name?, dataset?)` — friendly-name resolution.
+- `resolve_variable(name, cruise_name?, dataset?)` — friendly-name resolution for CTD or underway variables (underway resolution is vessel-aware when `cruise_name` is given).
 
 The `nes-lter://stations` and `nes-lter://variable-aliases` MCP resources provide stable reference context.
 
