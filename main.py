@@ -88,10 +88,24 @@ UNDERWAY_VARIABLE_UNITS = {
     "latitude": "deg", "longitude": "deg",
 }
 
+# Conversion factors into each canonical unit above, keyed by the various ways the API's
+# /api/underway/column_definition/{cruise} endpoint spells a raw unit (lowercased, periods
+# stripped). Used to correct the static per-vessel factors below against the API's own
+# declared units, since instrumentation units can vary or change per vessel/cruise.
+UNDERWAY_UNIT_CONVERSION_FACTORS = {
+    "m/s": {"knots": KT_TO_MS, "knot": KT_TO_MS, "kt": KT_TO_MS, "kts": KT_TO_MS, "m/s": 1.0, "meters/second": 1.0},
+    "kt": {"knots": 1.0, "knot": 1.0, "kt": 1.0, "kts": 1.0},
+    "deg": {"deg": 1.0, "deg true": 1.0, "deg relative": 1.0, "degree": 1.0, "degrees": 1.0},
+    "deg C": {"deg c": 1.0, "degree c": 1.0, "degrees c": 1.0, "c": 1.0},
+    "psu": {"psu": 1.0},
+    "hPa": {"hpa": 1.0, "mbar": 1.0, "millibar": 1.0, "millibars": 1.0},
+    "%": {"%": 1.0, "percent": 1.0},
+}
+
 # Per vessel family: friendly name -> [(column, factor_to_canonical_unit), ...] in priority order.
 UNDERWAY_VARIABLE_ALIASES = {
     "endeavor": {
-        "wind_speed": [("wind_truewindbow_speed", 1.0)],
+        "wind_speed": [("wind_truewindbow_speed", KT_TO_MS)],
         "wind_direction": [("wind_truewindbow_direction", 1.0)],
         "heading": [("gyro1_heading", 1.0), ("gnss_adu2_heading", 1.0)],
         "course_over_ground": [("gps_furuno_tmg", 1.0)],
@@ -659,6 +673,49 @@ async def _vessel_for_cruise(cruise_name: str, refresh: bool = False) -> str | N
     return _vessel_family(cruise.get("vessel_name")) if cruise else None
 
 
+async def _underway_column_units(cruise_name: str, refresh: bool = False) -> dict[str, str]:
+    """Map lowercased column name -> the raw unit string declared by the API for this cruise.
+
+    The endpoint's response shape (and completeness) varies by vessel/cruise, so this
+    tolerates missing units, missing names, and both the "Name"/"Units" and "name"/"units"
+    key-casing conventions observed across vessels; any failure yields an empty map so
+    callers fall back to the static UNDERWAY_VARIABLE_ALIASES factors.
+    """
+    async def _load() -> dict[str, str]:
+        try:
+            entries = await _json(f"/api/underway/column_definition/{quote(cruise_name, safe='')}")
+        except Exception:
+            return {}
+        if not isinstance(entries, list):
+            return {}
+        units: dict[str, str] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("Name") or entry.get("name")
+            unit = entry.get("Units") if entry.get("Units") is not None else entry.get("units")
+            if name and unit:
+                # CSV column headers use underscores; column_definition names use hyphens.
+                units[str(name).strip().lower().replace("-", "_")] = str(unit).strip()
+        return units
+
+    return await _cache.get(f"underway_units:{cruise_name}", _load, refresh)
+
+
+def _declared_unit_factor(friendly_variable: str, declared_unit: str | None) -> float | None:
+    """Return the factor to convert `declared_unit` into the friendly variable's canonical
+    unit, or None if the unit is missing or not a recognized spelling."""
+    if not declared_unit:
+        return None
+    canonical = UNDERWAY_VARIABLE_UNITS.get(friendly_variable)
+    table = UNDERWAY_UNIT_CONVERSION_FACTORS.get(canonical)
+    if not table:
+        return None
+    normalized = declared_unit.strip().lower().replace(".", "")
+    normalized = " ".join(normalized.split())
+    return table.get(normalized)
+
+
 def _circular_mean(degrees: list[float]) -> float:
     sin_sum = sum(math.sin(math.radians(d)) for d in degrees)
     cos_sum = sum(math.cos(math.radians(d)) for d in degrees)
@@ -681,9 +738,14 @@ async def _underway_cruise_values(cruise_name: str, variable: str, start_time: s
         raise ValueError(f"Could not determine vessel for cruise {cruise_name!r}; underway variable resolution requires a known vessel.")
     rows, _ = await _dataset_rows("underway", cruise_name, refresh)
     if not rows:
-        return {"cruise": cruise_name, "vessel": vessel, "column": None, "friendly_variable": None, "unit": None, "kind": "linear", "values": []}
+        return {"cruise": cruise_name, "vessel": vessel, "column": None, "friendly_variable": None, "unit": None, "kind": "linear", "values": [], "declared_unit": None, "unit_source": None}
     headers = list(rows[0])
-    column, friendly, factor = _resolve_underway_variable(variable, vessel, headers)
+    column, friendly, default_factor = _resolve_underway_variable(variable, vessel, headers)
+    column_units = await _underway_column_units(cruise_name, refresh)
+    declared_unit = column_units.get(column.lower())
+    declared_factor = _declared_unit_factor(friendly, declared_unit)
+    factor = declared_factor if declared_factor is not None else default_factor
+    unit_source = "api" if declared_factor is not None else "default_table"
     lat_col = next((c for c, _ in UNDERWAY_VARIABLE_ALIASES.get(vessel, {}).get("latitude", []) if c in headers), None)
     lon_col = next((c for c, _ in UNDERWAY_VARIABLE_ALIASES.get(vessel, {}).get("longitude", []) if c in headers), None)
     start_dt, end_dt = _parse_time(start_time), _parse_time(end_time)
@@ -703,7 +765,11 @@ async def _underway_cruise_values(cruise_name: str, variable: str, start_time: s
             "latitude": _float(row.get(lat_col)) if lat_col else None,
             "longitude": _float(row.get(lon_col)) if lon_col else None,
         })
-    return {"cruise": cruise_name, "vessel": vessel, "column": column, "friendly_variable": friendly, "unit": UNDERWAY_VARIABLE_UNITS.get(friendly), "kind": UNDERWAY_VARIABLE_KIND.get(friendly, "linear"), "values": values}
+    return {
+        "cruise": cruise_name, "vessel": vessel, "column": column, "friendly_variable": friendly,
+        "unit": UNDERWAY_VARIABLE_UNITS.get(friendly), "kind": UNDERWAY_VARIABLE_KIND.get(friendly, "linear"),
+        "values": values, "declared_unit": declared_unit, "unit_source": unit_source,
+    }
 
 
 @mcp.tool()
@@ -755,6 +821,11 @@ async def query_underway(
     unit = next((r["unit"] for r in cruise_results if r["values"]), None)
     is_circular = next((r["kind"] == "circular" for r in cruise_results if r["values"]), False)
     notes = []
+    fallback_cases = sorted({(r["vessel"], r["column"]) for r in cruise_results if r["values"] and r["unit_source"] == "default_table"})
+    notes.extend(
+        f"Vessel {vessel!r} column {column!r} had no API-declared unit recognized for {friendly_variable!r}; used the built-in default conversion factor instead."
+        for vessel, column in fallback_cases
+    )
 
     if aggregation == "none":
         flat = [
