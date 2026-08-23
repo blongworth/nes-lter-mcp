@@ -89,3 +89,38 @@ def test_underway_column_units_returns_empty_on_api_failure(monkeypatch):
 
     monkeypatch.setattr(main, "_json", failing_json)
     assert asyncio.run(_underway_column_units("EN608", refresh=True)) == {}
+
+
+# HRS2303 predates Sharp's current SCS column naming (e.g. HRS2606+) and uses this
+# older, distinct set of headers with only one true-wind sensor instead of two.
+LEGACY_SHARP_HEADERS = [
+    "date", "latitude_deg", "longitude_deg", "cog_deg", "sog_knots", "sog_kts",
+    "depth_meters", "relative_wind_speed_1_knots", "relative_wind_direction_1_deg",
+    "true_wind_speed__knots", "true_wind_direction_deg", "air_temperature_c",
+    "humidity_", "barometer_decibars", "water_temperature_degree_c", "salinity_psu",
+]
+
+
+@pytest.mark.parametrize(
+    "variable,expected_column,expected_factor",
+    [
+        ("wind speed", "true_wind_speed__knots", KT_TO_MS),
+        ("wind direction", "true_wind_direction_deg", 1.0),
+        ("course over ground", "cog_deg", 1.0),
+        ("air_temperature", "air_temperature_c", 1.0),
+        ("relative_humidity", "humidity_", 1.0),
+        ("barometric_pressure", "barometer_decibars", 1.0),
+        ("latitude", "latitude_deg", 1.0),
+        ("longitude", "longitude_deg", 1.0),
+    ],
+)
+def test_resolve_underway_variable_falls_back_to_legacy_sharp_columns(variable, expected_column, expected_factor):
+    column, _friendly, factor = _resolve_underway_variable(variable, "sharp", LEGACY_SHARP_HEADERS)
+    assert column == expected_column
+    assert factor == pytest.approx(expected_factor)
+
+
+def test_resolve_underway_variable_prefers_current_sharp_columns_when_present():
+    headers = ["wind1_true_speed_kt", "true_wind_speed__knots"]
+    column, _friendly, _factor = _resolve_underway_variable("wind speed", "sharp", headers)
+    assert column == "wind1_true_speed_kt"

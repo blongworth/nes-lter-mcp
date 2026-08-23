@@ -132,19 +132,24 @@ UNDERWAY_VARIABLE_ALIASES = {
         "latitude": [("dec_lat", 1.0)],
         "longitude": [("dec_lon", 1.0)],
     },
+    # Sharp's SCS column naming changed at some point before HRS2601; older cruises like
+    # HRS2303 use a distinct legacy naming scheme (with only one true-wind sensor instead
+    # of two), listed second in each candidate list so current cruises still match first.
     "sharp": {
-        "wind_speed": [("wind1_true_speed_kt", KT_TO_MS), ("wind2_true_speed_kt", KT_TO_MS)],
-        "wind_direction": [("wind1_true_dir_deg", 1.0), ("wind2_true_dir_deg", 1.0)],
+        "wind_speed": [("wind1_true_speed_kt", KT_TO_MS), ("wind2_true_speed_kt", KT_TO_MS), ("true_wind_speed__knots", KT_TO_MS)],
+        "wind_direction": [("wind1_true_dir_deg", 1.0), ("wind2_true_dir_deg", 1.0), ("true_wind_direction_deg", 1.0)],
         "heading": [("heading", 1.0)],
-        "course_over_ground": [("course_true_deg", 1.0)],
+        "course_over_ground": [("course_true_deg", 1.0), ("cog_deg", 1.0)],
         "speed_over_ground": [("sog_kts", 1.0)],
-        "air_temperature": [("air_temperature_degree_c", 1.0)],
+        "air_temperature": [("air_temperature_degree_c", 1.0), ("air_temperature_c", 1.0)],
         "water_temperature": [("water_temperature_degree_c", 1.0)],
         "salinity": [("salinity_psu", 1.0)],
-        "barometric_pressure": [("barometric_pressure_hpa", 1.0)],
-        "relative_humidity": [("relative_humidity_percent", 1.0)],
-        "latitude": [("dec_lat", 1.0)],
-        "longitude": [("dec_lon", 1.0)],
+        # HRS2303's Barometer_Decibars column is mislabeled: its declared unit is "decibars"
+        # but the actual values (~1020) are already hPa, so this is left unconverted.
+        "barometric_pressure": [("barometric_pressure_hpa", 1.0), ("barometer_decibars", 1.0)],
+        "relative_humidity": [("relative_humidity_percent", 1.0), ("humidity_", 1.0)],
+        "latitude": [("dec_lat", 1.0), ("latitude_deg", 1.0)],
+        "longitude": [("dec_lon", 1.0), ("longitude_deg", 1.0)],
     },
     "atlantic_explorer": {
         "wind_speed": [("twindspdpri_kts", KT_TO_MS), ("twindspdsec_kts", KT_TO_MS), ("twindspdter_kts", KT_TO_MS)],
