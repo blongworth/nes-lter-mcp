@@ -66,6 +66,17 @@ def test_underway_cruise_values_drops_fill_values(monkeypatch):
     assert [v["value"] for v in result["values"]] == [pytest.approx(10 * KT_TO_MS)]
 
 
+@pytest.mark.parametrize("raw", ["-99", "-99.0", -99, -99.0, "-999", -999.0, "-9999", "-9999.0"])
+def test_float_treats_missing_sentinel_as_none(raw):
+    assert main._float(raw) is None
+
+
+def test_float_keeps_values_near_sentinel():
+    assert main._float("-99.5") == -99.5
+    assert main._float("99") == 99.0
+    assert main._float("-998") == -998.0
+
+
 def test_resolve_underway_variable_raises_for_missing_column():
     with pytest.raises(ValueError, match="was not found for vessel family"):
         _resolve_underway_variable("wind speed", "endeavor", ["dec_lat", "dec_lon"])

@@ -257,12 +257,16 @@ def _in_season(dt: datetime, year: int, season: str | None) -> bool:
     return dt.year == year and dt.month in months
 
 
+# Fill values used for missing data in source exports (e.g. -99 in Sharp SCS underway, HRS2303).
+MISSING_SENTINELS = {-99.0, -999.0, -9999.0}
+
+
 def _float(value: Any) -> float | None:
     if value in (None, "", "nan", "NaN"):
         return None
     try:
         number = float(value)
-        return None if math.isnan(number) else number
+        return None if math.isnan(number) or number in MISSING_SENTINELS else number
     except (TypeError, ValueError):
         return None
 
@@ -758,8 +762,7 @@ async def _underway_cruise_values(cruise_name: str, variable: str, start_time: s
     values = []
     for row in rows:
         value = _float(row.get(column))
-        # -99 is the fill value in Sharp SCS exports (e.g. HRS2303).
-        if value is None or value == -99:
+        if value is None:
             continue
         timestamp = next((_parse_time(row.get(key)) for key in ("date", "datetimeiso", "datetime", "timestamp") if row.get(key)), None)
         if start_dt and timestamp and timestamp < start_dt:
