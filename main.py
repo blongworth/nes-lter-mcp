@@ -119,8 +119,9 @@ UNDERWAY_VARIABLE_ALIASES = {
         "longitude": [("gps_furuno_longitude", 1.0)],
     },
     "armstrong": {
-        "wind_speed": [("wxtp_sm", 1.0), ("wxts_sm", 1.0)],
-        "wind_direction": [("wxtp_dm", 1.0), ("wxts_dm", 1.0)],
+        # wxtp/wxts _sm/_dm are relative wind; _ts/_td are true wind.
+        "wind_speed": [("wxtp_ts", 1.0), ("wxts_ts", 1.0)],
+        "wind_direction": [("wxtp_td", 1.0), ("wxts_td", 1.0)],
         "heading": [("hdt", 1.0)],
         "course_over_ground": [("cog", 1.0), ("cnav_cog", 1.0)],
         "speed_over_ground": [("sog", 1.0)],
@@ -757,7 +758,8 @@ async def _underway_cruise_values(cruise_name: str, variable: str, start_time: s
     values = []
     for row in rows:
         value = _float(row.get(column))
-        if value is None:
+        # -99 is the fill value in Sharp SCS exports (e.g. HRS2303).
+        if value is None or value == -99:
             continue
         timestamp = next((_parse_time(row.get(key)) for key in ("date", "datetimeiso", "datetime", "timestamp") if row.get(key)), None)
         if start_dt and timestamp and timestamp < start_dt:

@@ -30,11 +30,40 @@ def test_circular_mean_of_identical_headings_is_unchanged():
 
 
 def test_resolve_underway_variable_picks_first_available_candidate():
-    headers = ["wxts_sm", "wxts_dm", "dec_lat", "dec_lon"]
+    headers = ["wxts_ts", "wxts_td", "dec_lat", "dec_lon"]
     column, friendly, factor = _resolve_underway_variable("wind speed", "armstrong", headers)
-    assert column == "wxts_sm"  # wxtp_sm is preferred but absent from headers
+    assert column == "wxts_ts"  # wxtp_ts is preferred but absent from headers
     assert friendly == "wind_speed"
     assert factor == 1.0
+
+
+def test_armstrong_wind_uses_true_not_relative_columns():
+    headers = ["wxtp_dm", "wxtp_td", "wxtp_sm", "wxtp_ts"]
+    column, _friendly, _factor = _resolve_underway_variable("wind direction", "armstrong", headers)
+    assert column == "wxtp_td"
+    column, _friendly, _factor = _resolve_underway_variable("wind speed", "armstrong", headers)
+    assert column == "wxtp_ts"
+
+
+def test_underway_cruise_values_drops_fill_values(monkeypatch):
+    async def fake_vessel(cruise_name, refresh=False):
+        return "sharp"
+
+    async def fake_rows(dataset, cruise_name, refresh=False):
+        rows = [
+            {"date": "2023-05-01T00:00:00Z", "true_wind_speed__knots": "10", "latitude_deg": "41", "longitude_deg": "-70"},
+            {"date": "2023-05-01T00:01:00Z", "true_wind_speed__knots": "-99", "latitude_deg": "-99", "longitude_deg": "-99"},
+        ]
+        return rows, "url"
+
+    async def fake_units(cruise_name, refresh=False):
+        return {"true_wind_speed__knots": "knots"}
+
+    monkeypatch.setattr(main, "_vessel_for_cruise", fake_vessel)
+    monkeypatch.setattr(main, "_dataset_rows", fake_rows)
+    monkeypatch.setattr(main, "_underway_column_units", fake_units)
+    result = asyncio.run(main._underway_cruise_values("HRS2303", "wind speed", None, None, False))
+    assert [v["value"] for v in result["values"]] == [pytest.approx(10 * KT_TO_MS)]
 
 
 def test_resolve_underway_variable_raises_for_missing_column():
