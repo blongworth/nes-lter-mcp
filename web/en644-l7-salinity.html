@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NES-LTER EN644 L7 salinity profile</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <script type="module" src="./nes-lter-vega-plot.js"></script>
+    <style>
+      body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #17324d; font: 16px system-ui, sans-serif; }
+      h1 { margin-bottom: 0.25rem; }
+      p { color: #526579; }
+      nes-lter-vega-plot { display: block; min-height: 380px; }
+    </style>
+  </head>
+  <body>
+    <h1>NES-LTER L7 salinity profile</h1>
+    <p>EN644 cast 8 &middot; Summer 2019 &middot; salinity (sal00)</p>
+    <nes-lter-vega-plot id="profile-plot"></nes-lter-vega-plot>
+
+    <script>
+      const plot = document.querySelector("#profile-plot");
+      const values = [{"depth_m": 3.0, "value": 34.2187}, {"depth_m": 4.0, "value": 34.2285}, {"depth_m": 5.0, "value": 34.23}, {"depth_m": 6.0, "value": 34.2268}, {"depth_m": 7.0, "value": 34.2376}, {"depth_m": 8.0, "value": 34.5397}, {"depth_m": 9.0, "value": 34.5941}, {"depth_m": 10.0, "value": 34.8023}, {"depth_m": 11.0, "value": 34.9171}, {"depth_m": 12.0, "value": 35.0547}, {"depth_m": 13.0, "value": 35.122}, {"depth_m": 14.0, "value": 35.0852}, {"depth_m": 15.0, "value": 34.5387}, {"depth_m": 16.0, "value": 34.0845}, {"depth_m": 17.0, "value": 33.8478}, {"depth_m": 18.0, "value": 33.602}, {"depth_m": 19.0, "value": 33.472}, {"depth_m": 20.0, "value": 33.2391}, {"depth_m": 21.0, "value": 33.1395}, {"depth_m": 22.0, "value": 33.114}, {"depth_m": 23.0, "value": 33.081}, {"depth_m": 24.0, "value": 33.0653}, {"depth_m": 25.0, "value": 33.0479}, {"depth_m": 26.0, "value": 33.042}, {"depth_m": 27.0, "value": 32.9773}, {"depth_m": 28.0, "value": 32.8104}, {"depth_m": 29.0, "value": 32.7414}, {"depth_m": 30.0, "value": 32.7416}, {"depth_m": 31.0, "value": 32.7856}, {"depth_m": 32.0, "value": 32.7913}, {"depth_m": 33.0, "value": 32.8331}, {"depth_m": 34.0, "value": 32.8372}, {"depth_m": 35.0, "value": 32.8124}, {"depth_m": 36.0, "value": 32.8131}, {"depth_m": 37.0, "value": 32.8429}, {"depth_m": 38.0, "value": 32.8618}, {"depth_m": 39.0, "value": 32.8585}, {"depth_m": 40.0, "value": 32.8425}, {"depth_m": 41.0, "value": 32.8362}, {"depth_m": 42.0, "value": 32.8503}, {"depth_m": 43.0, "value": 32.8622}, {"depth_m": 44.0, "value": 32.8724}, {"depth_m": 45.0, "value": 32.868}, {"depth_m": 46.0, "value": 32.8728}, {"depth_m": 47.0, "value": 32.8843}, {"depth_m": 48.0, "value": 32.9095}, {"depth_m": 49.0, "value": 32.9535}, {"depth_m": 50.0, "value": 32.9802}, {"depth_m": 51.0, "value": 33.0152}, {"depth_m": 52.0, "value": 33.051}, {"depth_m": 53.0, "value": 33.2001}, {"depth_m": 54.0, "value": 33.2558}, {"depth_m": 55.0, "value": 33.2945}, {"depth_m": 56.0, "value": 33.321}, {"depth_m": 57.0, "value": 33.3444}, {"depth_m": 58.0, "value": 33.3511}, {"depth_m": 59.0, "value": 33.3517}, {"depth_m": 60.0, "value": 33.3665}, {"depth_m": 61.0, "value": 33.4625}, {"depth_m": 62.0, "value": 33.5337}, {"depth_m": 63.0, "value": 33.6534}, {"depth_m": 64.0, "value": 33.83}, {"depth_m": 65.0, "value": 33.9718}, {"depth_m": 66.0, "value": 34.0092}, {"depth_m": 67.0, "value": 34.1618}, {"depth_m": 68.0, "value": 34.5305}, {"depth_m": 69.0, "value": 34.639}, {"depth_m": 70.0, "value": 34.6586}, {"depth_m": 71.0, "value": 34.9518}, {"depth_m": 72.0, "value": 34.9695}, {"depth_m": 73.0, "value": 34.9672}, {"depth_m": 74.0, "value": 35.0476}, {"depth_m": 75.0, "value": 35.1464}, {"depth_m": 76.0, "value": 35.2371}, {"depth_m": 77.0, "value": 35.2753}, {"depth_m": 78.0, "value": 35.2965}, {"depth_m": 79.0, "value": 35.3967}, {"depth_m": 80.0, "value": 35.5015}, {"depth_m": 81.0, "value": 35.4392}, {"depth_m": 82.0, "value": 35.4123}, {"depth_m": 83.0, "value": 35.4257}, {"depth_m": 84.0, "value": 35.4294}, {"depth_m": 85.0, "value": 35.4429}, {"depth_m": 86.0, "value": 35.4632}, {"depth_m": 87.0, "value": 35.4674}, {"depth_m": 88.0, "value": 35.4527}, {"depth_m": 89.0, "value": 35.4335}, {"depth_m": 90.0, "value": 35.4286}, {"depth_m": 91.0, "value": 35.4573}, {"depth_m": 92.0, "value": 35.4826}, {"depth_m": 93.0, "value": 35.4981}, {"depth_m": 94.0, "value": 35.5175}, {"depth_m": 95.0, "value": 35.5045}, {"depth_m": 96.0, "value": 35.455}, {"depth_m": 97.0, "value": 35.4298}, {"depth_m": 98.0, "value": 35.352}, {"depth_m": 99.0, "value": 35.3304}, {"depth_m": 100.0, "value": 35.3529}, {"depth_m": 101.0, "value": 35.4197}, {"depth_m": 102.0, "value": 35.456}, {"depth_m": 103.0, "value": 35.5143}, {"depth_m": 104.0, "value": 35.5318}, {"depth_m": 105.0, "value": 35.5331}, {"depth_m": 106.0, "value": 35.5343}, {"depth_m": 107.0, "value": 35.5353}, {"depth_m": 108.0, "value": 35.5367}, {"depth_m": 109.0, "value": 35.5366}, {"depth_m": 110.0, "value": 35.5361}, {"depth_m": 111.0, "value": 35.536}, {"depth_m": 112.0, "value": 35.5358}, {"depth_m": 113.0, "value": 35.5355}, {"depth_m": 114.0, "value": 35.5353}, {"depth_m": 115.0, "value": 35.5353}, {"depth_m": 116.0, "value": 35.5339}, {"depth_m": 117.0, "value": 35.5346}, {"depth_m": 118.0, "value": 35.5342}, {"depth_m": 119.0, "value": 35.5342}, {"depth_m": 120.0, "value": 35.5343}, {"depth_m": 121.0, "value": 35.5343}, {"depth_m": 122.0, "value": 35.5348}, {"depth_m": 123.0, "value": 35.5354}, {"depth_m": 124.0, "value": 35.5388}, {"depth_m": 125.0, "value": 35.5419}, {"depth_m": 126.0, "value": 35.5415}, {"depth_m": 127.0, "value": 35.5417}];
+      plot.spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 500,
+        "height": 400,
+        "data": {"values": values},
+        "mark": {"type": "line", "color": "#0072B2"},
+        "encoding": {
+          "x": {"field": "value", "type": "quantitative", "title": "Salinity (PSU)"},
+          "y": {"field": "depth_m", "type": "quantitative", "title": "Depth (m)", "scale": {"reverse": true}},
+          "order": {"field": "depth_m", "type": "quantitative", "sort": "ascending"},
+          "tooltip": [{"field": "depth_m", "title": "Depth (m)"}, {"field": "value", "title": "Salinity (PSU)"}]
+        }
+      };
+    </script>
+  </body>
+</html>

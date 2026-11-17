@@ -1,0 +1,2236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L8 winter temperature profiles</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<script type="module" src="./nes-lter-vega-plot.js"></script>
+<style>
+body { max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #17324d; font: 16px system-ui, sans-serif; }
+p { color: #526579; }
+nes-lter-vega-plot { display: block; min-height: 360px; }
+</style>
+</head>
+<body>
+<h1>Station L8 winter temperature profiles</h1>
+<p id="summary"></p>
+<nes-lter-vega-plot id="plot"></nes-lter-vega-plot>
+<script>
+const metadata = {
+  "station": "L8",
+  "cruises": [
+    "EN608",
+    "EN627",
+    "EN649",
+    "AT46",
+    "EN695",
+    "EN712",
+    "EN727",
+    "AR99"
+  ],
+  "row_count": 262,
+  "units": "deg C"
+};
+document.querySelector("#summary").textContent = metadata.cruises.length + " winter cruises · " + metadata.row_count + " depth-binned observations";
+document.querySelector("#plot").spec = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "temperature CTD profiles at L8",
+  "width": 450,
+  "height": 325,
+  "transform": [
+    {
+      "calculate": "datum.cruise === 'EN608' ? 'EN608 (2018)' : datum.cruise === 'EN627' ? 'EN627 (2019)' : datum.cruise === 'EN649' ? 'EN649 (2020)' : datum.cruise === 'AT46' ? 'AT46 (2022)' : datum.cruise === 'EN695' ? 'EN695 (2023)' : datum.cruise === 'EN712' ? 'EN712 (2024)' : datum.cruise === 'EN727' ? 'EN727 (2025)' : datum.cruise === 'AR99' ? 'AR99 (2026)' : datum.cruise",
+      "as": "cruise_label"
+    }
+  ],
+  "data": {
+    "values": [
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 7.5,
+        "value": 8.458000000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 12.5,
+        "value": 8.49844,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 17.5,
+        "value": 8.53818,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 22.5,
+        "value": 8.65588,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 27.5,
+        "value": 8.69642,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 32.5,
+        "value": 9.031659999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 37.5,
+        "value": 9.75428,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 42.5,
+        "value": 10.28378,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 47.5,
+        "value": 10.368540000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 52.5,
+        "value": 10.40342,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 57.5,
+        "value": 10.46828,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 62.5,
+        "value": 10.49262,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 67.5,
+        "value": 10.51624,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 72.5,
+        "value": 11.060979999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 77.5,
+        "value": 11.569379999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 82.5,
+        "value": 12.032659999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 87.5,
+        "value": 12.4282,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 92.5,
+        "value": 12.669839999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 97.5,
+        "value": 12.76606,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 102.5,
+        "value": 12.881220000000003,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 107.5,
+        "value": 12.916100000000004,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 112.5,
+        "value": 12.917239999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 117.5,
+        "value": 13.002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 122.5,
+        "value": 12.982159999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 127.5,
+        "value": 12.912659999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN608",
+        "cast": "15",
+        "depth_m": 132.5,
+        "value": 12.937700000000001,
+        "sample_count": 4,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 2.5,
+        "value": 6.583724999999999,
+        "sample_count": 8,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 7.5,
+        "value": 6.56223,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 12.5,
+        "value": 6.523440000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 17.5,
+        "value": 6.53065,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 22.5,
+        "value": 6.54357,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 27.5,
+        "value": 6.55347,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 32.5,
+        "value": 6.562950000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 37.5,
+        "value": 6.573919999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 42.5,
+        "value": 6.5929199999999994,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 47.5,
+        "value": 6.67055,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 52.5,
+        "value": 6.900530000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 57.5,
+        "value": 7.18301,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 62.5,
+        "value": 8.282059999999998,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 67.5,
+        "value": 9.14215,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 72.5,
+        "value": 10.218,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 77.5,
+        "value": 10.762649999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 82.5,
+        "value": 11.67114,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 87.5,
+        "value": 12.13814,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 92.5,
+        "value": 12.3572,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 97.5,
+        "value": 12.26535,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 102.5,
+        "value": 12.388990000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 107.5,
+        "value": 12.877469999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 112.5,
+        "value": 13.228950000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 117.5,
+        "value": 13.354949999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 122.5,
+        "value": 13.484699999999998,
+        "sample_count": 12,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 127.5,
+        "value": 13.24391,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "18",
+        "depth_m": 132.5,
+        "value": 13.1581,
+        "sample_count": 1,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 2.5,
+        "value": 6.730542857142857,
+        "sample_count": 7,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 7.5,
+        "value": 6.69953,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 12.5,
+        "value": 6.625780000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 17.5,
+        "value": 6.6287199999999995,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 22.5,
+        "value": 6.646210000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 27.5,
+        "value": 6.66854,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 32.5,
+        "value": 6.69993,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 37.5,
+        "value": 6.86829,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 42.5,
+        "value": 7.72838,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 47.5,
+        "value": 8.516029999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 52.5,
+        "value": 9.00118,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 57.5,
+        "value": 9.85717,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 62.5,
+        "value": 10.509339999999998,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 67.5,
+        "value": 11.147160000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 72.5,
+        "value": 11.66093,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 77.5,
+        "value": 12.31513,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 82.5,
+        "value": 12.523340000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 87.5,
+        "value": 12.40994,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 92.5,
+        "value": 12.278389999999998,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 97.5,
+        "value": 12.632189999999998,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 102.5,
+        "value": 13.119600000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 107.5,
+        "value": 13.411539999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 112.5,
+        "value": 13.6126,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 117.5,
+        "value": 13.6831,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 122.5,
+        "value": 13.597208333333333,
+        "sample_count": 12,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN627",
+        "cast": "19",
+        "depth_m": 127.5,
+        "value": 13.306,
+        "sample_count": 7,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 2.5,
+        "value": 7.174,
+        "sample_count": 1,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 7.5,
+        "value": 7.1744,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 12.5,
+        "value": 7.17488,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 17.5,
+        "value": 7.178459999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 22.5,
+        "value": 7.197100000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 27.5,
+        "value": 7.343500000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 32.5,
+        "value": 7.577039999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 37.5,
+        "value": 7.7591399999999995,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 42.5,
+        "value": 8.191139999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 47.5,
+        "value": 8.631540000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 52.5,
+        "value": 9.054359999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 57.5,
+        "value": 9.3803,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 62.5,
+        "value": 9.821439999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 67.5,
+        "value": 9.997179999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 72.5,
+        "value": 10.385900000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 77.5,
+        "value": 11.0462,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 82.5,
+        "value": 11.70302,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 87.5,
+        "value": 11.959900000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 92.5,
+        "value": 12.34816,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 97.5,
+        "value": 12.66198,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 102.5,
+        "value": 12.93834,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 107.5,
+        "value": 13.1701,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 112.5,
+        "value": 13.412599999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 117.5,
+        "value": 13.864500000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 122.5,
+        "value": 14.53774,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN649",
+        "cast": "8",
+        "depth_m": 127.5,
+        "value": 14.791000000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 2.5,
+        "value": 9.2736,
+        "sample_count": 2,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 7.5,
+        "value": 9.284119999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 12.5,
+        "value": 9.325199999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 17.5,
+        "value": 9.39648,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 22.5,
+        "value": 9.447019999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 27.5,
+        "value": 9.803920000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 32.5,
+        "value": 10.369220000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 37.5,
+        "value": 10.530360000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 42.5,
+        "value": 10.86192,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 47.5,
+        "value": 11.573780000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 52.5,
+        "value": 12.39636,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 57.5,
+        "value": 12.9451,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 62.5,
+        "value": 13.135740000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 67.5,
+        "value": 13.206879999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 72.5,
+        "value": 13.237640000000003,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 77.5,
+        "value": 13.502859999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 82.5,
+        "value": 13.505500000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 87.5,
+        "value": 13.624519999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 92.5,
+        "value": 13.748000000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 97.5,
+        "value": 13.87288,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 102.5,
+        "value": 13.91904,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 107.5,
+        "value": 13.954939999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 112.5,
+        "value": 14.06702,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 117.5,
+        "value": 14.26448,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 122.5,
+        "value": 14.303880000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AT46",
+        "cast": "13",
+        "depth_m": 127.5,
+        "value": 14.32348,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 7.5,
+        "value": 11.166419999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 12.5,
+        "value": 11.16656,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 17.5,
+        "value": 11.17768,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 22.5,
+        "value": 11.23566,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 27.5,
+        "value": 11.3947,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 32.5,
+        "value": 13.03476,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 37.5,
+        "value": 14.03768,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 42.5,
+        "value": 14.418940000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 47.5,
+        "value": 14.755840000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 52.5,
+        "value": 14.87936,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 57.5,
+        "value": 15.003200000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 62.5,
+        "value": 15.1557,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 67.5,
+        "value": 15.546719999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 72.5,
+        "value": 15.77688,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 77.5,
+        "value": 16.03322,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 82.5,
+        "value": 16.38926,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 87.5,
+        "value": 16.51448,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 92.5,
+        "value": 16.26062,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 97.5,
+        "value": 16.10904,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 102.5,
+        "value": 16.489539999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 107.5,
+        "value": 16.673219999999997,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 112.5,
+        "value": 16.482999999999997,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 117.5,
+        "value": 16.33082,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 122.5,
+        "value": 16.256140000000002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 127.5,
+        "value": 15.937479999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN695",
+        "cast": "6",
+        "depth_m": 132.5,
+        "value": 15.831150000000001,
+        "sample_count": 2,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 7.5,
+        "value": 6.194800000000001,
+        "sample_count": 3,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 12.5,
+        "value": 6.19536,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 17.5,
+        "value": 6.19822,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 22.5,
+        "value": 6.21056,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 27.5,
+        "value": 6.198320000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 32.5,
+        "value": 6.17068,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 37.5,
+        "value": 6.34176,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 42.5,
+        "value": 6.90402,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 47.5,
+        "value": 7.3601,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 52.5,
+        "value": 7.94814,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 57.5,
+        "value": 8.69472,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 62.5,
+        "value": 9.03262,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 67.5,
+        "value": 9.13328,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 72.5,
+        "value": 9.57776,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 77.5,
+        "value": 10.369580000000003,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 82.5,
+        "value": 11.16902,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 87.5,
+        "value": 11.46936,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 92.5,
+        "value": 11.636800000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 97.5,
+        "value": 12.05292,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 102.5,
+        "value": 12.25204,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 107.5,
+        "value": 12.23986,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 112.5,
+        "value": 12.49632,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 117.5,
+        "value": 12.7352,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 122.5,
+        "value": 12.6316,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 127.5,
+        "value": 12.621579999999998,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 132.5,
+        "value": 12.61814,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN712",
+        "cast": "12",
+        "depth_m": 137.5,
+        "value": 12.617700000000001,
+        "sample_count": 4,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 12.5,
+        "value": 6.841033333333333,
+        "sample_count": 3,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 17.5,
+        "value": 6.83848,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 22.5,
+        "value": 6.824340000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 27.5,
+        "value": 6.82934,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 32.5,
+        "value": 6.827579999999999,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 37.5,
+        "value": 6.820180000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 42.5,
+        "value": 6.8187,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 47.5,
+        "value": 6.81944,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 52.5,
+        "value": 6.8185400000000005,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 57.5,
+        "value": 6.809900000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 62.5,
+        "value": 6.80624,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 67.5,
+        "value": 7.13026,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 72.5,
+        "value": 7.93882,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 77.5,
+        "value": 8.227020000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 82.5,
+        "value": 8.30174,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 87.5,
+        "value": 8.395700000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 92.5,
+        "value": 8.73948,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 97.5,
+        "value": 9.12978,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 102.5,
+        "value": 10.26432,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 107.5,
+        "value": 9.551,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 112.5,
+        "value": 9.2086,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 117.5,
+        "value": 10.01002,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 122.5,
+        "value": 10.1879,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 127.5,
+        "value": 10.14828,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 132.5,
+        "value": 10.412700000000001,
+        "sample_count": 5,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "EN727",
+        "cast": "10",
+        "depth_m": 137.5,
+        "value": 10.6282,
+        "sample_count": 1,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 2.5,
+        "value": 7.6321,
+        "sample_count": 3,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 7.5,
+        "value": 7.625049999999999,
+        "sample_count": 8,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 12.5,
+        "value": 7.6139600000000005,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 17.5,
+        "value": 7.59731,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 22.5,
+        "value": 7.59396,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 27.5,
+        "value": 7.622609999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 32.5,
+        "value": 7.86529,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 37.5,
+        "value": 8.769960000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 42.5,
+        "value": 10.388079999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 47.5,
+        "value": 10.97358,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 52.5,
+        "value": 11.4764,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 57.5,
+        "value": 12.329940000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 62.5,
+        "value": 12.85639,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 67.5,
+        "value": 12.950470000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 72.5,
+        "value": 13.010259999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 77.5,
+        "value": 13.088069999999998,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 82.5,
+        "value": 13.198540000000003,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 87.5,
+        "value": 13.36827,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 92.5,
+        "value": 13.524600000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 97.5,
+        "value": 13.66804,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 102.5,
+        "value": 13.73033,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 107.5,
+        "value": 13.78082,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 112.5,
+        "value": 13.76816,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 117.5,
+        "value": 13.710790000000003,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 122.5,
+        "value": 13.219775,
+        "sample_count": 12,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "14",
+        "depth_m": 127.5,
+        "value": 12.836028571428571,
+        "sample_count": 7,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 2.5,
+        "value": 7.856466666666667,
+        "sample_count": 3,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 7.5,
+        "value": 7.85874,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 12.5,
+        "value": 7.86806,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 17.5,
+        "value": 7.91175,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 22.5,
+        "value": 8.49633,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 27.5,
+        "value": 10.0352,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 32.5,
+        "value": 11.813240000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 37.5,
+        "value": 12.38374,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 42.5,
+        "value": 12.804670000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 47.5,
+        "value": 12.922989999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 52.5,
+        "value": 12.98996,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 57.5,
+        "value": 13.11035,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 62.5,
+        "value": 13.191740000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 67.5,
+        "value": 13.261840000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 72.5,
+        "value": 13.30566,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 77.5,
+        "value": 13.37397,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 82.5,
+        "value": 13.500319999999999,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 87.5,
+        "value": 13.613400000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 92.5,
+        "value": 13.686420000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 97.5,
+        "value": 13.728320000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 102.5,
+        "value": 13.741220000000002,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 107.5,
+        "value": 13.76158,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 112.5,
+        "value": 13.715440000000001,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 117.5,
+        "value": 13.63851,
+        "sample_count": 10,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 122.5,
+        "value": 13.366275,
+        "sample_count": 12,
+        "variable": "temperature"
+      },
+      {
+        "cruise": "AR99",
+        "cast": "20",
+        "depth_m": 127.5,
+        "value": 13.317300000000001,
+        "sample_count": 7,
+        "variable": "temperature"
+      }
+    ]
+  },
+  "layer": [
+    {
+      "transform": [
+        {
+          "filter": {
+            "field": "variable",
+            "equal": "temperature"
+          }
+        }
+      ],
+      "mark": {
+        "type": "line"
+      },
+      "encoding": {
+        "x": {
+          "field": "value",
+          "type": "quantitative",
+          "title": "temperature"
+        },
+        "y": {
+          "field": "depth_m",
+          "type": "quantitative",
+          "title": "Depth (m)",
+          "scale": {
+            "reverse": true
+          }
+        },
+        "color": {
+          "field": "cruise_label",
+          "type": "nominal",
+          "title": "Cruise (year)",
+          "sort": [
+            "EN608 (2018)",
+            "EN627 (2019)",
+            "EN649 (2020)",
+            "AT46 (2022)",
+            "EN695 (2023)",
+            "EN712 (2024)",
+            "EN727 (2025)",
+            "AR99 (2026)"
+          ]
+        },
+        "detail": {
+          "field": "cast",
+          "type": "nominal"
+        },
+        "order": {
+          "field": "depth_m",
+          "type": "quantitative",
+          "sort": "ascending"
+        },
+        "tooltip": [
+          {
+            "field": "cruise_label",
+            "title": "Cruise"
+          },
+          {
+            "field": "cruise",
+            "title": "Cruise ID"
+          },
+          {
+            "field": "cast"
+          },
+          {
+            "field": "variable"
+          },
+          {
+            "field": "depth_m"
+          },
+          {
+            "field": "value"
+          },
+          {
+            "field": "sample_count"
+          }
+        ]
+      }
+    }
+  ],
+  "resolve": {
+    "scale": {
+      "x": "independent"
+    }
+  }
+};
+</script>
+</body>
+</html>
