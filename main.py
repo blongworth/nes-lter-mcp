@@ -1,14 +1,15 @@
-"""Efficient MCP access to the NES-LTER API.
+"""Efficient MCP access to the NES-LTER API (v3).
 
-The tools intentionally return compact, JSON-serializable records.  Large
-profiles and cruise tables can be filtered, limited, or requested in batches.
+The v3 API does the filtering, variable resolution (including harmonizing
+underway columns across vessels), station matching and per-cast profile
+summaries server-side, so most tools are one or two requests. Surface
+summaries, depth binning, underway aggregation, plots and maps are built here.
 """
 
 from __future__ import annotations
 
 import asyncio
-import csv
-import io
+import json
 import math
 import os
 import time
@@ -20,7 +21,7 @@ from urllib.parse import quote
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-API_BASE_URL = os.environ.get("NES_LTER_API_BASE_URL", "https://nes-lter-api.whoi.edu").rstrip("/")
+API_BASE_URL = os.environ.get("NES_LTER_API_BASE_URL", "https://nes-lter-api.whoi.edu/api/v3").rstrip("/")
 CACHE_TTL_SECONDS = float(os.environ.get("NES_LTER_CACHE_TTL", "900"))
 MAX_CONCURRENCY = int(os.environ.get("NES_LTER_MAX_CONCURRENCY", "8"))
 
@@ -30,147 +31,55 @@ mcp = FastMCP(
         "Use compact summary tools first. Typical workflow: find_cruises, "
         "query_ctd, then request include_points=true only for selected casts. "
         "Use query_underway for meteorological/oceanographic underway data "
-        "(wind, temperature, salinity, position, speed, etc.) with vessel-aware "
-        "variable resolution and cruise-level aggregation; use list_dataset_rows "
-        "for raw underway, bottle, nutrient, chlorophyll, HPLC, event, and "
-        "event-history rows. For plots use plot_ctd_profiles; for maps use "
-        "make_station_map or get_cruise_track_data."
+        "(wind, temperature, salinity, position, speed, etc.) with cruise-level "
+        "aggregation; use list_dataset_rows for raw underway, bottle, nutrient, "
+        "chlorophyll, HPLC and event rows. Variable names accept friendly names "
+        "(oxygen, temperature), aliases and raw instrument column names; use "
+        "resolve_variable to see units and what a name maps to. For plots use "
+        "plot_ctd_profiles; for maps use make_station_map or get_cruise_track_data."
     ),
 )
 
-SEASONS = {"winter": {12, 1, 2}, "spring": {3, 4, 5}, "summer": {6, 7, 8}, "fall": {9, 10, 11}, "autumn": {9, 10, 11}}
-VARIABLE_ALIASES = {
-    "oxygen": ["sbox0mm_kg", "sbox1mm_kg"], "dissolved oxygen": ["sbox0mm_kg", "sbox1mm_kg"], "o2": ["sbox0mm_kg", "sbox1mm_kg"],
-    "temperature": ["t090c", "t190c", "potemp090c", "potemp190c"], "temp": ["t090c", "t190c", "potemp090c", "potemp190c"],
-    "salinity": ["sal00", "sal11"], "sal": ["sal00", "sal11"], "density": ["sigma_00", "sigma_11"],
-    "fluorescence": ["fleco_afl"], "par": ["par"], "transmissometer": ["cstartr0", "cstarat0"],
-}
-DATASET_PATHS = {
-    "underway": "/api/underway/{cruise}.csv", "bottles": "/api/ctd/bottles/{cruise}.csv",
-    "bottle_summary": "/api/ctd/bottle_summary/{cruise}.csv", "nutrients": "/api/nut/{cruise}.csv",
-    "hplc": "/api/hplc/{cruise}.csv", "chlorophyll": "/api/chl/{cruise}.csv",
-    "events": "/api/events/{cruise}.csv", "event_history": "/api/events/history/{cruise}",
-}
+DATASETS = {"underway": "underway", "bottles": "bottles", "bottle_summary": "bottles", "nutrients": "nutrients",
+            "hplc": "hplc", "chlorophyll": "chlorophyll", "events": "events", "casts": "casts", "ctd": "ctd"}
+BOTTLE_SUMMARY_COLUMNS = ("cruise", "cast", "niskin", "time", "latitude", "longitude", "depth_m")
 
-KT_TO_MS = 0.514444
-
-# Underway instrumentation and column naming differ by vessel. Atlantis shares the
-# Neil Armstrong's WXT weather-station convention, so both map to the "armstrong" family.
-UNDERWAY_VESSEL_FAMILIES = {
-    "endeavor": "endeavor",
-    "neil armstrong": "armstrong",
-    "atlantis": "armstrong",
-    "hugh r. sharp": "sharp",
-    "atlantic explorer": "atlantic_explorer",
-}
-
+# Friendly underway names -> the API's harmonized underway variables. The API maps each
+# vessel's own columns (and units, e.g. knots -> m/s) onto these names.
 UNDERWAY_FRIENDLY_SYNONYMS = {
-    "wind speed": "wind_speed", "windspeed": "wind_speed", "wind_speed": "wind_speed",
-    "wind direction": "wind_direction", "winddir": "wind_direction", "wind_dir": "wind_direction", "wind_direction": "wind_direction",
-    "temperature": "water_temperature", "temp": "water_temperature", "sst": "water_temperature",
-    "sea surface temperature": "water_temperature", "water temperature": "water_temperature", "water_temperature": "water_temperature",
-    "air temperature": "air_temperature", "airtemp": "air_temperature", "air_temp": "air_temperature", "air_temperature": "air_temperature",
-    "salinity": "salinity", "sal": "salinity",
-    "pressure": "barometric_pressure", "baro": "barometric_pressure", "barometric pressure": "barometric_pressure", "barometric_pressure": "barometric_pressure",
-    "humidity": "relative_humidity", "rh": "relative_humidity", "relative humidity": "relative_humidity", "relative_humidity": "relative_humidity",
-    "speed": "speed_over_ground", "sog": "speed_over_ground", "speed over ground": "speed_over_ground", "speed_over_ground": "speed_over_ground",
-    "heading": "heading",
-    "course": "course_over_ground", "cog": "course_over_ground", "course over ground": "course_over_ground", "course_over_ground": "course_over_ground",
-    "lat": "latitude", "latitude": "latitude",
-    "lon": "longitude", "lng": "longitude", "longitude": "longitude",
+    "wind speed": "true_wind_speed", "windspeed": "true_wind_speed", "wind_speed": "true_wind_speed",
+    "wind direction": "true_wind_direction", "winddir": "true_wind_direction", "wind_dir": "true_wind_direction",
+    "wind_direction": "true_wind_direction",
+    "temperature": "sea_surface_temperature", "temp": "sea_surface_temperature", "sst": "sea_surface_temperature",
+    "sea surface temperature": "sea_surface_temperature", "water temperature": "sea_surface_temperature",
+    "water_temperature": "sea_surface_temperature",
+    "air temperature": "air_temperature", "airtemp": "air_temperature", "air_temp": "air_temperature",
+    "salinity": "sea_surface_salinity", "sal": "sea_surface_salinity",
+    "pressure": "barometric_pressure", "baro": "barometric_pressure", "barometric pressure": "barometric_pressure",
+    "humidity": "relative_humidity", "rh": "relative_humidity", "relative humidity": "relative_humidity",
+    "speed": "speed_over_ground", "sog": "speed_over_ground", "speed over ground": "speed_over_ground",
+    "course": "course_over_ground", "cog": "course_over_ground", "course over ground": "course_over_ground",
+    "lat": "latitude", "lon": "longitude", "lng": "longitude",
+}
+UNDERWAY_VARIABLE_KIND = {"true_wind_direction": "circular", "heading": "circular", "course_over_ground": "circular"}
+# Physically valid ranges. Some source files use fill values (e.g. -99 on the Sharp) that
+# the API passes through -- for wind speed already converted from knots, so -99 arrives as
+# -50.93 m/s -- so values outside these ranges are dropped and counted in the notes.
+UNDERWAY_VALID_RANGES = {
+    "true_wind_speed": (0.0, 150.0), "true_wind_direction": (0.0, 360.0), "heading": (0.0, 360.0),
+    "course_over_ground": (0.0, 360.0), "relative_humidity": (0.0, 100.0), "speed_over_ground": (0.0, 50.0),
+    "latitude": (-90.0, 90.0), "longitude": (-180.0, 180.0),
 }
 
-UNDERWAY_VARIABLE_KIND = {"wind_direction": "circular", "heading": "circular", "course_over_ground": "circular"}
-UNDERWAY_VARIABLE_UNITS = {
-    "wind_speed": "m/s", "wind_direction": "deg", "heading": "deg", "course_over_ground": "deg",
-    "speed_over_ground": "kt", "air_temperature": "deg C", "water_temperature": "deg C",
-    "salinity": "psu", "barometric_pressure": "hPa", "relative_humidity": "%",
-    "latitude": "deg", "longitude": "deg",
-}
-
-# Conversion factors into each canonical unit above, keyed by the various ways the API's
-# /api/underway/column_definition/{cruise} endpoint spells a raw unit (lowercased, periods
-# stripped). Used to correct the static per-vessel factors below against the API's own
-# declared units, since instrumentation units can vary or change per vessel/cruise.
-UNDERWAY_UNIT_CONVERSION_FACTORS = {
-    "m/s": {"knots": KT_TO_MS, "knot": KT_TO_MS, "kt": KT_TO_MS, "kts": KT_TO_MS, "m/s": 1.0, "meters/second": 1.0},
-    "kt": {"knots": 1.0, "knot": 1.0, "kt": 1.0, "kts": 1.0},
-    "deg": {"deg": 1.0, "deg true": 1.0, "deg relative": 1.0, "degree": 1.0, "degrees": 1.0},
-    "deg C": {"deg c": 1.0, "degree c": 1.0, "degrees c": 1.0, "c": 1.0},
-    "psu": {"psu": 1.0},
-    "hPa": {"hpa": 1.0, "mbar": 1.0, "millibar": 1.0, "millibars": 1.0},
-    "%": {"%": 1.0, "percent": 1.0},
-}
-
-# Per vessel family: friendly name -> [(column, factor_to_canonical_unit), ...] in priority order.
-UNDERWAY_VARIABLE_ALIASES = {
-    "endeavor": {
-        "wind_speed": [("wind_truewindbow_speed", KT_TO_MS)],
-        "wind_direction": [("wind_truewindbow_direction", 1.0)],
-        "heading": [("gyro1_heading", 1.0), ("gnss_adu2_heading", 1.0)],
-        "course_over_ground": [("gps_furuno_tmg", 1.0)],
-        "speed_over_ground": [("gps_furuno_smg", 1.0)],
-        "air_temperature": [("met_rmy_bow_airtemp", 1.0), ("met_rmy_trans_airtemp", 1.0)],
-        "water_temperature": [("tsg1_temperature", 1.0), ("tsg2_temperature", 1.0), ("met_rmy_trans_sst1", 1.0)],
-        "salinity": [("tsg1_salinity", 1.0), ("tsg2_salinity", 1.0)],
-        "barometric_pressure": [("met_rmy_bow_baropressure", 1.0), ("met_rmy_trans_baropressure", 1.0)],
-        "relative_humidity": [("met_rmy_bow_relhumidity", 1.0), ("met_rmy_trans_relhumidity", 1.0)],
-        "latitude": [("gps_furuno_latitude", 1.0)],
-        "longitude": [("gps_furuno_longitude", 1.0)],
-    },
-    "armstrong": {
-        # wxtp/wxts _sm/_dm are relative wind; _ts/_td are true wind.
-        "wind_speed": [("wxtp_ts", 1.0), ("wxts_ts", 1.0)],
-        "wind_direction": [("wxtp_td", 1.0), ("wxts_td", 1.0)],
-        "heading": [("hdt", 1.0)],
-        "course_over_ground": [("cog", 1.0), ("cnav_cog", 1.0)],
-        "speed_over_ground": [("sog", 1.0)],
-        "air_temperature": [("wxtp_ta", 1.0), ("wxts_ta", 1.0)],
-        "water_temperature": [("sbe48t", 1.0)],
-        "salinity": [("sbe45s", 1.0)],
-        "barometric_pressure": [("barom_p", 1.0), ("barom_s", 1.0), ("wxtp_pa", 1.0)],
-        "relative_humidity": [("wxtp_ua", 1.0), ("wxts_ua", 1.0)],
-        "latitude": [("dec_lat", 1.0)],
-        "longitude": [("dec_lon", 1.0)],
-    },
-    # Sharp's SCS column naming changed at some point before HRS2601; older cruises like
-    # HRS2303 use a distinct legacy naming scheme (with only one true-wind sensor instead
-    # of two), listed second in each candidate list so current cruises still match first.
-    "sharp": {
-        "wind_speed": [("wind1_true_speed_kt", KT_TO_MS), ("wind2_true_speed_kt", KT_TO_MS), ("true_wind_speed__knots", KT_TO_MS)],
-        "wind_direction": [("wind1_true_dir_deg", 1.0), ("wind2_true_dir_deg", 1.0), ("true_wind_direction_deg", 1.0)],
-        "heading": [("heading", 1.0)],
-        "course_over_ground": [("course_true_deg", 1.0), ("cog_deg", 1.0)],
-        "speed_over_ground": [("sog_kts", 1.0)],
-        "air_temperature": [("air_temperature_degree_c", 1.0), ("air_temperature_c", 1.0)],
-        "water_temperature": [("water_temperature_degree_c", 1.0)],
-        "salinity": [("salinity_psu", 1.0)],
-        # HRS2303's Barometer_Decibars column is mislabeled: its declared unit is "decibars"
-        # but the actual values (~1020) are already hPa, so this is left unconverted.
-        "barometric_pressure": [("barometric_pressure_hpa", 1.0), ("barometer_decibars", 1.0)],
-        "relative_humidity": [("relative_humidity_percent", 1.0), ("humidity_", 1.0)],
-        "latitude": [("dec_lat", 1.0), ("latitude_deg", 1.0)],
-        "longitude": [("dec_lon", 1.0), ("longitude_deg", 1.0)],
-    },
-    "atlantic_explorer": {
-        "wind_speed": [("twindspdpri_kts", KT_TO_MS), ("twindspdsec_kts", KT_TO_MS), ("twindspdter_kts", KT_TO_MS)],
-        "wind_direction": [("twinddirpri_deg", 1.0), ("twinddirsec_deg", 1.0), ("twinddirter_deg", 1.0)],
-        "heading": [("gps_hdt_deg", 1.0)],
-        "course_over_ground": [("cog_deg", 1.0)],
-        "speed_over_ground": [("sog_kts", 1.0)],
-        "air_temperature": [("airtemp_c", 1.0), ("rmy_airtemp_c", 1.0)],
-        "water_temperature": [("sbe38_remotetemp_c", 1.0), ("sbe45pri_temp_c", 1.0)],
-        "salinity": [("sbe45pri_sal_psu", 1.0), ("sbe45sec_sal_psu", 1.0)],
-        "barometric_pressure": [("bp_corr_mbar", 1.0), ("rmy_bp_mbar", 1.0)],
-        "relative_humidity": [("rh_percent", 1.0), ("rmy_rh_percent", 1.0)],
-        "latitude": [("latitude", 1.0)],
-        "longitude": [("longitude", 1.0)],
-    },
-}
+UNDERWAY_PAGE_LIMIT = 50_000  # the API's maximum JSON page size
 
 _client: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
 _semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
+
+class APIError(ValueError):
+    """The API rejected the request (4xx); the message is the API's explanation."""
 
 
 async def _http_client() -> httpx.AsyncClient:
@@ -182,43 +91,40 @@ async def _http_client() -> httpx.AsyncClient:
     return _client
 
 
-async def _get(path: str) -> httpx.Response:
+def _url(path: str, params: dict[str, Any] | None = None) -> str:
+    query = "&".join(f"{k}={quote(str(v), safe=',')}" for k, v in (params or {}).items() if v is not None)
+    return f"{API_BASE_URL}{path}" + (f"?{query}" if query else "")
+
+
+async def _get(path: str, params: dict[str, Any] | None = None) -> Any:
+    """GET JSON. 4xx raises APIError with the API's detail; 5xx and network errors are retried."""
     client = await _http_client()
+    url = _url(path, params)
     last_error: Exception | None = None
     for attempt in range(3):
         try:
             async with _semaphore:
-                response = await client.get(f"{API_BASE_URL}{path}")
-            if response.status_code in {429, 500, 502, 503, 504}:
-                response.raise_for_status()
+                response = await client.get(url)
+            if 400 <= response.status_code < 500:
+                try:
+                    detail = response.json().get("detail", response.text)
+                except ValueError:
+                    detail = response.text
+                raise APIError(f"{response.status_code}: {detail}")
             response.raise_for_status()
-            return response
+            return response.json()
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
             last_error = exc
             if attempt < 2:
                 await asyncio.sleep(0.5 * (2**attempt))
-    raise RuntimeError(f"NES-LTER API request failed for {path}: {last_error}") from last_error
+    raise RuntimeError(f"NES-LTER API request failed for {url}: {last_error}") from last_error
 
 
-def _source(path: str) -> dict[str, str]:
-    return {"source_url": f"{API_BASE_URL}{path}", "retrieved_at": datetime.now(timezone.utc).isoformat()}
-
-
-async def _json(path: str) -> Any:
-    return (await _get(path)).json()
-
-
-async def _json_or_text(path: str) -> Any:
-    response = await _get(path)
-    try:
-        return response.json()
-    except ValueError:
-        return {"raw": response.text, "columns": [line.strip() for line in response.text.splitlines() if line.strip()]}
-
-
-async def _csv(path: str) -> list[dict[str, str]]:
-    response = await _get(path)
-    return list(csv.DictReader(io.StringIO(response.text)))
+def _source(path: str, params: dict[str, Any] | None = None, build_id: str | None = None) -> dict[str, Any]:
+    out = {"source_url": _url(path, params), "retrieved_at": datetime.now(timezone.utc).isoformat()}
+    if build_id:
+        out["build_id"] = build_id
+    return out
 
 
 class _TTLCache:
@@ -237,24 +143,20 @@ class _TTLCache:
 _cache = _TTLCache()
 
 
-def _parse_time(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+async def _cached(path: str, params: dict[str, Any] | None = None, refresh: bool = False) -> Any:
+    return await _cache.get(_url(path, params), lambda: _get(path, params), refresh)
 
 
-def _in_season(dt: datetime, year: int, season: str | None) -> bool:
-    if not season:
-        return dt.year == year
-    months = SEASONS.get(season.lower())
-    if months is None:
-        raise ValueError(f"Unknown season {season!r}; use winter, spring, summer, or fall")
-    if season.lower() == "winter":
-        return (dt.year == year and dt.month in {1, 2}) or (dt.year == year - 1 and dt.month == 12)
-    return dt.year == year and dt.month in months
+async def _data_rows(dataset: str, params: dict[str, Any], refresh: bool = False) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """All rows of /data/{dataset} for params (following next_cursor), and the last page's meta."""
+    path = f"/data/{dataset}"
+    body = await _cached(path, params, refresh)
+    rows, meta = list(body["data"]), body["meta"]
+    while meta.get("next_cursor") and len(rows) < meta.get("row_count", 0):
+        body = await _get(path, {**params, "cursor": meta["next_cursor"]})
+        rows.extend(body["data"])
+        meta = body["meta"]
+    return rows, meta
 
 
 # Fill values used for missing data in source exports (e.g. -99 in Sharp SCS underway, HRS2303).
@@ -269,12 +171,6 @@ def _float(value: Any) -> float | None:
         return None if math.isnan(number) or number in MISSING_SENTINELS else number
     except (TypeError, ValueError):
         return None
-
-
-def _paginate(rows: list[dict[str, Any]], offset: int, limit: int) -> tuple[list[dict[str, Any]], bool]:
-    limit = max(1, min(limit, 10_000))
-    selected = rows[max(0, offset):max(0, offset) + limit]
-    return selected, len(rows) > max(0, offset) + len(selected)
 
 
 POINT_COUNT_WARNING_THRESHOLD = 2000
@@ -351,110 +247,123 @@ def _bin_points(points: list[dict[str, Any]], value_column: str, bin_size_m: flo
     ]
 
 
-async def _all_cruises(refresh: bool = False) -> tuple[dict[str, Any], ...]:
-    value = await _cache.get("cruises", lambda: _json("/api/ctd/cruises/all"), refresh)
-    return tuple(c for c in value if c)
+def _circular_mean(degrees: list[float]) -> float:
+    sin_sum = sum(math.sin(math.radians(d)) for d in degrees)
+    cos_sum = sum(math.cos(math.radians(d)) for d in degrees)
+    return math.degrees(math.atan2(sin_sum, cos_sum)) % 360
 
 
-async def _metadata(cruise_name: str, refresh: bool = False) -> list[dict[str, str]]:
-    name = quote(cruise_name, safe="")
-    return await _cache.get(f"metadata:{name}", lambda: _csv(f"/api/ctd/metadata/{name}.csv"), refresh)
+async def _cruise_names(year: int | None, season: str | None, cruise_type: str | None, refresh: bool = False) -> list[str]:
+    params = {"year": year, "season": season, "type": cruise_type}
+    body = await _cached("/cruises", params, refresh)
+    return [c["cruise"] for c in body["cruises"]]
 
 
 @mcp.tool()
 async def list_stations(refresh: bool = False) -> dict[str, Any]:
-    """List standard NES-LTER stations with coordinates and station metadata."""
-    path = "/api/stations/file.csv"
-    rows = await _cache.get("stations", lambda: _csv(path), refresh)
-    return {**_source(path), "count": len(rows), "stations": rows}
-
-
-def _cruise_matches(cruise: dict[str, Any], year: int | None, season: str | None, cruise_type: str | None) -> bool:
-    start = _parse_time(cruise.get("start_time"))
-    if year is not None:
-        if start is None or not _in_season(start, year, season):
-            return False
-    elif season:
-        months = SEASONS.get(season.lower())
-        if months is None:
-            raise ValueError(f"Unknown season {season!r}; use winter, spring, summer, or fall")
-        if start is None or start.month not in months:
-            return False
-    return not cruise_type or cruise.get("type", "").lower() == cruise_type.lower()
+    """List standard NES-LTER stations with coordinates and the periods each position applies."""
+    body = await _cached("/stations", refresh=refresh)
+    return {**_source("/stations"), "count": body["count"], "stations": body["stations"]}
 
 
 @mcp.tool()
 async def find_cruises(year: int | None = None, season: str | None = None, cruise_type: str | None = None, refresh: bool = False) -> dict[str, Any]:
-    """Return the full CTD cruise catalog or filter it by year, season, and type.
+    """Return the full cruise catalog or filter it by year, meteorological season, and type.
 
-    With no filters this mirrors /api/ctd/cruises/all, including cruises of all
-    types and the API fields name, vessel_name, type, start_time, and end_time.
-    If season is supplied without year, it matches that season across all years.
+    With no filters this returns cruises of all types, with fields cruise, vessel,
+    cruise_type, start_time, end_time and per-dataset row counts. Winter is Dec of the
+    previous year to Feb. If season is supplied without year, it matches that season
+    across all years.
     """
-    cruises = [cruise for cruise in await _all_cruises(refresh) if _cruise_matches(cruise, year, season, cruise_type)]
-    return {"year": year, "season": season, "cruise_type": cruise_type, "count": len(cruises), "cruises": cruises, **_source("/api/ctd/cruises/all")}
-
-
-async def _matching_casts(cruise_name: str, station: str | None, max_distance_km: float) -> list[dict[str, Any]]:
-    rows = await _metadata(cruise_name)
-    station_upper = station.upper() if station else None
-    output = []
-    for row in rows:
-        distance = _float(row.get("distance_km"))
-        nearest = (row.get("nearest_station") or "").upper()
-        if station_upper and (nearest != station_upper or (distance is not None and distance > max_distance_km)):
-            continue
-        output.append({**row, "distance_km": distance})
-    return output
+    params = {"year": year, "season": season, "type": cruise_type}
+    body = await _cached("/cruises", params, refresh)
+    return {"year": year, "season": season, "cruise_type": cruise_type, "count": body["count"],
+            "cruises": body["cruises"], **_source("/cruises", params)}
 
 
 @mcp.tool()
 async def list_casts(cruise_name: str, station: str | None = None, max_distance_km: float = 3.0, offset: int = 0, limit: int = 100, refresh: bool = False) -> dict[str, Any]:
-    """List casts, optionally restricted to the nearest standard station."""
-    rows = await _matching_casts(cruise_name, station, max_distance_km)
-    selected, has_more = _paginate(rows, offset, limit)
-    notes = [note for note in (_truncation_note(len(selected), len(rows), "limit/offset"),) if note]
-    return {"cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "notes": notes, "casts": selected, **_source(f"/api/ctd/metadata/{quote(cruise_name, safe='')}.csv")}
+    """List casts of a cruise, optionally only those near a standard station."""
+    limit = max(1, min(limit, 10_000))
+    params = {"cruise": cruise_name, "station": station, "max_distance_km": max_distance_km if station else None,
+              "limit": offset + limit}
+    body = await _cached("/data/casts", params, refresh)
+    rows = body["data"][offset:offset + limit]
+    total = body["meta"]["row_count"]
+    notes = [note for note in (_truncation_note(offset + len(rows), total, "limit/offset"),) if note]
+    return {"cruise": cruise_name, "offset": offset, "limit": limit, "has_more": total > offset + len(rows),
+            "count": len(rows), "notes": notes, "casts": rows, **_source("/data/casts", params, body["meta"]["build_id"])}
 
 
-async def _cast_profile(
-    cruise_name: str,
-    cast_number: str,
-    variable: str,
-    include_points: bool = True,
-    depth_min: float | None = None,
-    depth_max: float | None = None,
-    surface_definition: str = "none",
-    depth_bin_m: float | None = None,
-) -> dict[str, Any]:
-    name, cast = quote(cruise_name, safe=""), quote(cast_number, safe="")
-    path = f"/api/ctd/cast/{name}/{cast}.csv"
-    rows = await _csv(path)
-    if not rows:
-        return {"cruise": cruise_name, "cast": cast_number, "point_count": 0, "points": [], **_source(path)}
-    headers = list(rows[0])
-    candidates = VARIABLE_ALIASES.get(variable.lower(), [variable])
-    value_column = next((column for column in candidates if column in headers), None)
-    if value_column is None:
-        raise ValueError(f"Variable {variable!r} was not found; available columns include: {', '.join(headers[:80])}")
-    depth_column = "depsm" if "depsm" in headers else "prdm"
+def _summary_to_profile(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "cruise": row["cruise"], "cast": row["cast"], "time": row["time"], "latitude": row["latitude"],
+        "longitude": row["longitude"], "nearest_station": row["nearest_station"], "distance_km": row["distance_km"],
+        "variable": row["variable"], "value_column": row["variable"], "units": row["unit"], "point_count": row["n"],
+        "depth_range_m": [row["depth_min"], row["depth_max"]], "value_range": [row["min"], row["max"]],
+        "mean": row["mean"], "surface_value": row["surface"], "bottom_value": row["bottom"],
+    }
+
+
+async def _cast_points(profile: dict[str, Any], depth_min: float | None, depth_max: float | None) -> list[dict[str, Any]]:
+    variable = profile["variable"]
+    body = await _get(f"/casts/{quote(str(profile['cruise']), safe='')}/{quote(str(profile['cast']), safe='')}/profile",
+                      {"variables": variable, "depth_min": depth_min, "depth_max": depth_max})
     points = []
-    for row in rows:
-        depth, value = _float(row.get(depth_column)), _float(row.get(value_column))
-        if depth is not None and value is not None and (depth_min is None or depth >= depth_min) and (depth_max is None or depth <= depth_max):
-            points.append({"depth_m": depth, value_column: value, "date": row.get("date")})
-    plot_points = _bin_points(points, value_column, depth_bin_m)
-    depths, values = [p["depth_m"] for p in plot_points], [p[value_column] for p in plot_points]
-    result = {"cruise": cruise_name, "cast": cast_number, "variable_requested": variable, "value_column": value_column, "depth_column": depth_column, "units_note": "Confirm units from the cruise variable schema; oxygen sbox*mm_kg is commonly mmol/kg and temperature t*c is deg C.", "surface_definition": surface_definition, "depth_bin_m": depth_bin_m, "point_count": len(plot_points), "depth_range_m": [min(depths), max(depths)] if depths else None, "value_range": [min(values), max(values)] if values else None, **_source(path)}
-    result["surface_summary"] = _surface_summary(plot_points, value_column, surface_definition)
-    result["points"] = plot_points if include_points else None
-    return result
+    for row in body["data"]:
+        depth, value = _float(row.get("depth_m")), _float(row.get(variable))
+        if depth is not None and value is not None:
+            points.append({"depth_m": depth, variable: value, "time": row.get("time")})
+    return points
+
+
+async def _profiles(params: dict[str, Any], variable: str, include_points: bool, limit: int, surface_definition: str = "none", depth_bin_m: float | None = None) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    """(per-cast summaries for one variable, response meta, per-cast errors).
+
+    Points are fetched only when needed: for include_points, a surface_definition, or
+    depth binning. A cast whose points fail to load is skipped and reported in errors.
+    """
+    _validate_surface_definition(surface_definition)
+    if depth_bin_m is not None and depth_bin_m <= 0:
+        raise ValueError("depth_bin_m must be greater than zero")
+    summary = await _get("/profiles", {**params, "variables": variable, "summary": "true"})
+    profiles = [_summary_to_profile(r) for r in summary["data"]][:limit]
+    for p in profiles:
+        p["surface_summary"] = None
+        p["points"] = None
+    errors: list[str] = []
+    if profiles and (include_points or surface_definition != "none" or depth_bin_m):
+        results, errors = await _gather_partial(
+            profiles,
+            lambda p: _cast_points(p, params.get("depth_min"), params.get("depth_max")),
+            lambda p: f"{p['cruise']} cast {p['cast']}",
+        )
+        profiles = []
+        for p, points in results:
+            points = _bin_points(points, p["variable"], depth_bin_m)
+            p["surface_summary"] = _surface_summary(points, p["variable"], surface_definition)
+            if include_points:
+                p["points"], p["point_count"] = points, len(points)
+            profiles.append(p)
+    return profiles, summary["meta"] | {"total": len(summary["data"])}, errors
 
 
 @mcp.tool()
 async def get_cast_profile(cruise_name: str, cast_number: str, variable: str = "oxygen", include_points: bool = True, depth_min: float | None = None, depth_max: float | None = None, surface_definition: str = "none", depth_bin_m: float | None = None) -> dict[str, Any]:
-    """Get one CTD profile, optionally compact and depth-filtered."""
-    return await _cast_profile(cruise_name, cast_number, variable, include_points, depth_min, depth_max, surface_definition, depth_bin_m)
+    """Get one CTD profile: units, depth and value ranges, surface/bottom values, and optionally the points.
+
+    surface_definition: none, shallowest_valid, mean_0_5m, mean_0_10m or mean_0_20m.
+    depth_bin_m averages points into depth bins of that size.
+    """
+    params = {"cruise": cruise_name, "cast": cast_number, "depth_min": depth_min, "depth_max": depth_max}
+    profiles, _, errors = await _profiles(params, variable, include_points, 1, surface_definition, depth_bin_m)
+    if errors:
+        raise RuntimeError(errors[0])
+    if not profiles:
+        return {"cruise": cruise_name, "cast": cast_number, "variable_requested": variable, "point_count": 0,
+                "points": [] if include_points else None, **_source("/profiles", params)}
+    return {"variable_requested": variable, "surface_definition": surface_definition, "depth_bin_m": depth_bin_m,
+            **profiles[0], **_source("/profiles", params)}
 
 
 async def _query_ctd(
@@ -476,33 +385,35 @@ async def _query_ctd(
     if not cruise_name and year is None:
         raise ValueError("Provide cruise_name or year")
     _validate_surface_definition(surface_definition)
-    cruises = [{"name": cruise_name}] if cruise_name else (await find_cruises(year or datetime.now(timezone.utc).year, season, cruise_type, refresh))["cruises"]
-    cast_results, cast_errors = await _gather_partial(cruises, lambda c: _matching_casts(c["name"], station, max_distance_km), lambda c: c["name"])
-    targets = [(cruise["name"], cast) for cruise, casts in cast_results for cast in casts]
-    total_casts = len(targets)
-    targets = targets[:max(1, min(limit, 1000))]
-    profile_results, profile_errors = await _gather_partial(
-        targets,
-        lambda target: _cast_profile(target[0], str(target[1]["cast"]), variable, include_points, depth_min, depth_max, surface_definition, depth_bin_m),
-        lambda target: f"{target[0]} cast {target[1]['cast']}",
-    )
-    profiles = []
-    for (_, cast), profile in profile_results:
-        profile["station_match"] = cast
-        profiles.append(profile)
-    errors = cast_errors + profile_errors
-    point_count = sum(profile.get("point_count", 0) for profile in profiles)
+    base = {"station": station.upper() if station else None, "variable": variable, "year": year, "season": season,
+            "surface_definition": surface_definition, "depth_bin_m": depth_bin_m}
+    cruises = [cruise_name] if cruise_name else await _cruise_names(year, season, cruise_type, refresh)
+    if not cruises:
+        return {**base, "profile_count": 0, "point_count": 0, "truncated": False,
+                "notes": ["No cruises matched the given filters."], "errors": [], "profiles": [],
+                **_source("/cruises", {"year": year, "season": season, "type": cruise_type})}
+    params = {"cruise": ",".join(cruises), "station": station, "max_distance_km": max_distance_km if station else None,
+              "year": year, "season": season, "depth_min": depth_min, "depth_max": depth_max}
+    limit = max(1, min(limit, 1000))
+    profiles, meta, errors = await _profiles(params, variable, include_points, limit, surface_definition, depth_bin_m)
+    point_count = sum(len(p["points"] or []) for p in profiles) if include_points else sum(p.get("point_count") or 0 for p in profiles)
     notes = [note for note in (
-        _truncation_note(len(targets), total_casts, "limit"),
+        _truncation_note(min(limit, meta["total"]), meta["total"], "limit"),
         _point_count_note(point_count) if include_points else None,
         f"{len(errors)} cast(s) failed to load and were skipped; see errors." if errors else None,
     ) if note]
-    return {"station": station.upper() if station else None, "variable": variable, "year": year, "season": season, "surface_definition": surface_definition, "depth_bin_m": depth_bin_m, "profile_count": len(profiles), "point_count": point_count, "truncated": len(targets) < total_casts or bool(errors), "notes": notes, "errors": errors, "profiles": profiles, **_source("/api/ctd/cast/{cruise}/{cast}.csv")}
+    return {**base, "profile_count": len(profiles), "point_count": point_count,
+            "truncated": meta["total"] > limit or bool(errors), "notes": notes, "errors": errors, "profiles": profiles,
+            **_source("/profiles", {**params, "variables": variable, "summary": "true"}, meta.get("build_id"))}
 
 
 @mcp.tool()
 async def query_ctd(station: str | None = None, variable: str = "oxygen", year: int | None = None, season: str | None = None, cruise_name: str | None = None, cruise_type: str | None = "NES-LTER", max_distance_km: float = 3.0, include_points: bool = False, depth_min: float | None = None, depth_max: float | None = None, limit: int = 100, refresh: bool = False, surface_definition: str = "none", depth_bin_m: float | None = None) -> dict[str, Any]:
-    """Batch CTD query with explicit surface definitions and optional depth binning."""
+    """Batch CTD query across cruises. Returns compact per-cast summaries unless include_points is true.
+
+    surface_definition (none, shallowest_valid, mean_0_5m, mean_0_10m, mean_0_20m) adds a
+    per-cast surface_summary; depth_bin_m averages points into depth bins.
+    """
     return await _query_ctd(station, variable, year, season, cruise_name, cruise_type, max_distance_km, include_points, depth_min, depth_max, limit, refresh, surface_definition, depth_bin_m)
 
 
@@ -581,9 +492,9 @@ async def plot_ctd_profiles(
             row["cruise_year"] = result_year
             row["cruise_label"] = f"{row['cruise']} ({result_year})"
         rows.extend(variable_rows)
-    units = "deg C" if variable.lower() in {"temperature", "temp"} else None
-    if len(requested_variables) > 1:
-        units = None
+    # Units come from the API; only report one when a single variable has a single unit.
+    found_units = {p.get("units") for result in results for p in result["profiles"]} - {None}
+    units = next(iter(found_units)) if len(requested_variables) == 1 and len(found_units) == 1 else None
     cruise_order = list(dict.fromkeys(
         row["cruise_label"]
         for row in sorted(rows, key=lambda item: (item.get("cruise_year", 0), str(item.get("cruise", ""))))
@@ -630,156 +541,69 @@ async def plot_ctd_profiles(
             "layer": layers,
             "resolve": {"scale": {"x": "independent"}},
         },
-        "provenance": {"years": [year_start, year_end], "source": "NES-LTER CTD cast API"},
+        "provenance": {"years": [year_start, year_end], "source": f"{API_BASE_URL}/profiles"},
     }
-
-
-async def _dataset_rows(dataset: str, cruise_name: str, refresh: bool = False) -> tuple[list[dict[str, Any]], str]:
-    path = DATASET_PATHS[dataset].format(cruise=quote(cruise_name, safe=""))
-    async def load_rows() -> list[dict[str, Any]]:
-        if dataset == "event_history":
-            value = await _json(path)
-            return value if isinstance(value, list) else [value]
-        return await _csv(path)
-
-    rows = await _cache.get(f"dataset:{dataset}:{cruise_name}", load_rows, refresh)
-    return rows, path
 
 
 @mcp.tool()
 async def list_dataset_rows(dataset: str, cruise_name: str, station: str | None = None, variable: str | None = None, start_time: str | None = None, end_time: str | None = None, offset: int = 0, limit: int = 500, refresh: bool = False) -> dict[str, Any]:
-    """Fetch and filter underway, bottles, nutrients, HPLC, chlorophyll, or event rows."""
-    dataset = dataset.lower()
-    if dataset not in DATASET_PATHS:
-        raise ValueError(f"Unknown dataset {dataset!r}; choose from {', '.join(sorted(DATASET_PATHS))}")
-    rows, path = await _dataset_rows(dataset, cruise_name, refresh)
-    filtered = []
-    for row in rows:
-        haystack = " ".join(str(value) for value in row.values()).lower()
-        timestamp = next((_parse_time(row.get(key)) for key in ("date", "datetime", "timestamp", "time") if row.get(key)), None)
-        if station and station.lower() not in haystack:
-            continue
-        if variable and variable.lower() not in haystack:
-            continue
-        if start_time and timestamp and timestamp < (_parse_time(start_time) or timestamp):
-            continue
-        if end_time and timestamp and timestamp > (_parse_time(end_time) or timestamp):
-            continue
-        filtered.append(row)
-    selected, has_more = _paginate(filtered, offset, limit)
-    notes = [note for note in (_truncation_note(len(selected), len(filtered), "limit/offset"),) if note]
-    return {"dataset": dataset, "cruise": cruise_name, "offset": offset, "limit": limit, "has_more": has_more, "count": len(selected), "notes": notes, "rows": selected, **_source(path)}
+    """Fetch rows of underway, bottles, bottle_summary, nutrients, HPLC, chlorophyll, events, casts or ctd for a cruise.
 
-
-def _vessel_family(vessel_name: str | None) -> str | None:
-    if not vessel_name:
-        return None
-    name = vessel_name.lower()
-    return next((family for key, family in UNDERWAY_VESSEL_FAMILIES.items() if key in name), None)
-
-
-async def _vessel_for_cruise(cruise_name: str, refresh: bool = False) -> str | None:
-    cruise = next((c for c in await _all_cruises(refresh) if c.get("name") == cruise_name), None)
-    return _vessel_family(cruise.get("vessel_name")) if cruise else None
-
-
-async def _underway_column_units(cruise_name: str, refresh: bool = False) -> dict[str, str]:
-    """Map lowercased column name -> the raw unit string declared by the API for this cruise.
-
-    The endpoint's response shape (and completeness) varies by vessel/cruise, so this
-    tolerates missing units, missing names, and both the "Name"/"Units" and "name"/"units"
-    key-casing conventions observed across vessels; any failure yields an empty map so
-    callers fall back to the static UNDERWAY_VARIABLE_ALIASES factors.
+    `variable` selects measurement columns (comma-separated names or aliases); key columns are always included.
+    `station` keeps rows nearest that station (within 3 km); not every dataset supports it.
     """
-    async def _load() -> dict[str, str]:
-        try:
-            entries = await _json(f"/api/underway/column_definition/{quote(cruise_name, safe='')}")
-        except Exception:
-            return {}
-        if not isinstance(entries, list):
-            return {}
-        units: dict[str, str] = {}
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            name = entry.get("Name") or entry.get("name")
-            unit = entry.get("Units") if entry.get("Units") is not None else entry.get("units")
-            if name and unit:
-                # CSV column headers use underscores; column_definition names use hyphens.
-                units[str(name).strip().lower().replace("-", "_")] = str(unit).strip()
-        return units
-
-    return await _cache.get(f"underway_units:{cruise_name}", _load, refresh)
-
-
-def _declared_unit_factor(friendly_variable: str, declared_unit: str | None) -> float | None:
-    """Return the factor to convert `declared_unit` into the friendly variable's canonical
-    unit, or None if the unit is missing or not a recognized spelling."""
-    if not declared_unit:
-        return None
-    canonical = UNDERWAY_VARIABLE_UNITS.get(friendly_variable)
-    table = UNDERWAY_UNIT_CONVERSION_FACTORS.get(canonical)
-    if not table:
-        return None
-    normalized = declared_unit.strip().lower().replace(".", "")
-    normalized = " ".join(normalized.split())
-    return table.get(normalized)
+    name = dataset.lower()
+    if name == "event_history":
+        raise ValueError("event_history is not available from API v3: event corrections are made in files, "
+                         "so there is no edit history to serve")
+    if name not in DATASETS:
+        raise ValueError(f"Unknown dataset {dataset!r}; choose from {', '.join(sorted(DATASETS))}")
+    limit = max(1, min(limit, 10_000))
+    params = {"cruise": cruise_name, "station": station, "variables": variable, "start": start_time, "end": end_time,
+              "limit": offset + limit}
+    body = await _cached(f"/data/{DATASETS[name]}", params, refresh)
+    rows = body["data"][offset:offset + limit]
+    if name == "bottle_summary":
+        rows = [{k: r.get(k) for k in BOTTLE_SUMMARY_COLUMNS} for r in rows]
+    units = {c["name"]: c["units"] for c in body["meta"]["columns"] if c.get("units")}
+    total = body["meta"]["row_count"]
+    notes = [note for note in (_truncation_note(offset + len(rows), total, "limit/offset"),) if note]
+    return {"dataset": name, "cruise": cruise_name, "offset": offset, "limit": limit,
+            "has_more": total > offset + len(rows), "count": len(rows), "notes": notes, "units": units,
+            "rows": rows, **_source(f"/data/{DATASETS[name]}", params, body["meta"]["build_id"])}
 
 
-def _circular_mean(degrees: list[float]) -> float:
-    sin_sum = sum(math.sin(math.radians(d)) for d in degrees)
-    cos_sum = sum(math.cos(math.radians(d)) for d in degrees)
-    return math.degrees(math.atan2(sin_sum, cos_sum)) % 360
-
-
-def _resolve_underway_variable(variable: str, family: str, headers: list[str]) -> tuple[str, str, float]:
-    """Return (resolved_column, friendly_name, unit_factor) for the first candidate present in headers."""
-    key = UNDERWAY_FRIENDLY_SYNONYMS.get(variable.lower(), variable.lower())
-    candidates = UNDERWAY_VARIABLE_ALIASES.get(family, {}).get(key) or [(variable, 1.0)]
-    for column, factor in candidates:
-        if column in headers:
-            return column, key, factor
-    raise ValueError(f"Variable {variable!r} was not found for vessel family {family!r}; available columns include: {', '.join(headers[:80])}")
+async def _underway_variable(variable: str) -> dict[str, Any]:
+    """Catalog entry of the harmonized underway variable a friendly name, alias or raw column maps to."""
+    name = UNDERWAY_FRIENDLY_SYNONYMS.get(variable.lower(), variable)
+    body = await _cached(f"/variables/{quote(name, safe='')}")
+    match = next((v for v in body["variables"] if "underway" in v.get("datasets", [])), None)
+    if match is None:
+        raise ValueError(f"{variable!r} is not an underway variable; try e.g. wind speed, wind direction, "
+                         "temperature, salinity, air temperature, pressure, humidity, heading or speed")
+    return match
 
 
 async def _underway_cruise_values(cruise_name: str, variable: str, start_time: str | None, end_time: str | None, refresh: bool) -> dict[str, Any]:
-    vessel = await _vessel_for_cruise(cruise_name, refresh)
-    if vessel is None:
-        raise ValueError(f"Could not determine vessel for cruise {cruise_name!r}; underway variable resolution requires a known vessel.")
-    rows, _ = await _dataset_rows("underway", cruise_name, refresh)
-    if not rows:
-        return {"cruise": cruise_name, "vessel": vessel, "column": None, "friendly_variable": None, "unit": None, "kind": "linear", "values": [], "declared_unit": None, "unit_source": None}
-    headers = list(rows[0])
-    column, friendly, default_factor = _resolve_underway_variable(variable, vessel, headers)
-    column_units = await _underway_column_units(cruise_name, refresh)
-    declared_unit = column_units.get(column.lower())
-    declared_factor = _declared_unit_factor(friendly, declared_unit)
-    factor = declared_factor if declared_factor is not None else default_factor
-    unit_source = "api" if declared_factor is not None else "default_table"
-    lat_col = next((c for c, _ in UNDERWAY_VARIABLE_ALIASES.get(vessel, {}).get("latitude", []) if c in headers), None)
-    lon_col = next((c for c, _ in UNDERWAY_VARIABLE_ALIASES.get(vessel, {}).get("longitude", []) if c in headers), None)
-    start_dt, end_dt = _parse_time(start_time), _parse_time(end_time)
-    values = []
+    # The API pages at 1,000 rows by default; a cruise has up to ~30k underway rows, so ask for
+    # them in one page (_data_rows still follows next_cursor if the API caps it).
+    params = {"cruise": cruise_name, "variables": variable, "start": start_time, "end": end_time, "limit": UNDERWAY_PAGE_LIMIT}
+    (rows, meta), cruise = await asyncio.gather(
+        _data_rows("underway", params, refresh), _cached(f"/cruises/{quote(cruise_name.lower(), safe='')}"))
+    unit = next((c.get("units") for c in meta["columns"] if c["name"] == variable), None)
+    low, high = UNDERWAY_VALID_RANGES.get(variable, (-math.inf, math.inf))
+    values, dropped = [], 0
     for row in rows:
-        value = _float(row.get(column))
-        if value is None:
+        raw = row.get(variable)
+        value = _float(raw)
+        if value is None or not low <= value <= high:
+            dropped += raw not in (None, "")
             continue
-        timestamp = next((_parse_time(row.get(key)) for key in ("date", "datetimeiso", "datetime", "timestamp") if row.get(key)), None)
-        if start_dt and timestamp and timestamp < start_dt:
-            continue
-        if end_dt and timestamp and timestamp > end_dt:
-            continue
-        values.append({
-            "date": row.get("date") or row.get("datetimeiso"),
-            "value": value * factor,
-            "latitude": _float(row.get(lat_col)) if lat_col else None,
-            "longitude": _float(row.get(lon_col)) if lon_col else None,
-        })
-    return {
-        "cruise": cruise_name, "vessel": vessel, "column": column, "friendly_variable": friendly,
-        "unit": UNDERWAY_VARIABLE_UNITS.get(friendly), "kind": UNDERWAY_VARIABLE_KIND.get(friendly, "linear"),
-        "values": values, "declared_unit": declared_unit, "unit_source": unit_source,
-    }
+        values.append({"time": row.get("time"), "value": value,
+                       "latitude": _float(row.get("latitude")), "longitude": _float(row.get("longitude"))})
+    return {"cruise": cruise_name, "vessel": cruise.get("vessel"), "variable": variable, "unit": unit,
+            "kind": UNDERWAY_VARIABLE_KIND.get(variable, "linear"), "values": values, "dropped": dropped,
+            "build_id": meta.get("build_id")}
 
 
 @mcp.tool()
@@ -795,54 +619,53 @@ async def query_underway(
     limit: int = 500,
     refresh: bool = False,
 ) -> dict[str, Any]:
-    """Query underway meteorological/oceanographic data with vessel-aware variable resolution.
+    """Query underway meteorological/oceanographic data, aggregated across one or many cruises.
 
-    Resolves friendly names (wind_speed, wind_direction, water_temperature,
-    air_temperature, salinity, barometric_pressure, relative_humidity, heading,
-    course_over_ground, speed_over_ground, latitude, longitude — plus common synonyms
-    like temp, sal, sog, cog) to the correct column for the cruise's vessel (Endeavor,
-    Neil Armstrong, Atlantis, Hugh R. Sharp, or Atlantic Explorer), converts to a
-    common unit, and aggregates across one or many cruises. Directional variables
-    (wind_direction, heading, course_over_ground) use a circular mean.
+    Accepts friendly names (wind speed, wind direction, water temperature, air temperature,
+    salinity, pressure, humidity, heading, course over ground, speed over ground, latitude,
+    longitude, plus synonyms like temp, sal, sog, cog), the API's variable names, or a
+    vessel's raw column name. The API maps each vessel's columns onto common variables and
+    units (wind speed in m/s). Fill values (-99) and physically impossible values are
+    dropped and counted in the notes. Directional variables use a circular mean.
 
     aggregation: "cruise_mean" (default, one row per cruise), "period_mean" (one
-    overall value, equal-weighted across matched cruises), or "none" (paginated
-    per-reading rows with position, for e.g. plotting a track colored by variable).
+    overall value, equal-weighted across matched cruises), or "none" (per-reading rows
+    with position, up to limit, for e.g. plotting a track colored by variable).
     """
     valid_aggregations = {"none", "cruise_mean", "period_mean"}
     if aggregation not in valid_aggregations:
         raise ValueError(f"Unknown aggregation {aggregation!r}; use {', '.join(sorted(valid_aggregations))}")
     if not cruise_name and year is None and season is None:
         raise ValueError("Provide cruise_name, year, or season")
-    # Pass year through as-is (rather than defaulting to the current year) so that
-    # season alone matches that season across all years, per find_cruises' documented behavior.
-    cruises = [{"name": cruise_name}] if cruise_name else (await find_cruises(year, season, cruise_type, refresh))["cruises"]
+    catalog = await _underway_variable(variable)
+    api_variable = catalog["name"]
+    # Season alone matches that season across all years, as in find_cruises.
+    cruises = [cruise_name] if cruise_name else await _cruise_names(year, season, cruise_type, refresh)
+    params = {"cruise": ",".join(cruises), "variables": api_variable, "start": start_time, "end": end_time}
     if not cruises:
-        return {"variable": variable, "aggregation": aggregation, "cruise_count": 0, "notes": ["No cruises matched the given filters."], "errors": [], "data": [], **_source("/api/underway/{cruise}.csv")}
+        return {"variable": api_variable, "requested": variable, "unit": catalog.get("units"), "aggregation": aggregation,
+                "cruise_count": 0, "notes": ["No cruises matched the given filters."], "errors": [], "data": [],
+                **_source("/cruises", {"year": year, "season": season, "type": cruise_type})}
 
     results, errors = await _gather_partial(
         cruises,
-        lambda c: _underway_cruise_values(c["name"], variable, start_time, end_time, refresh),
-        lambda c: c["name"],
+        lambda c: _underway_cruise_values(c, api_variable, start_time, end_time, refresh),
+        lambda c: c,
     )
     cruise_results = [result for _, result in results]
-
-    friendly_variable = next((r["friendly_variable"] for r in cruise_results if r["values"]), None)
-    unit = next((r["unit"] for r in cruise_results if r["values"]), None)
-    is_circular = next((r["kind"] == "circular" for r in cruise_results if r["values"]), False)
-    notes = []
-    fallback_cases = sorted({(r["vessel"], r["column"]) for r in cruise_results if r["values"] and r["unit_source"] == "default_table"})
-    notes.extend(
-        f"Vessel {vessel!r} column {column!r} had no API-declared unit recognized for {friendly_variable!r}; used the built-in default conversion factor instead."
-        for vessel, column in fallback_cases
-    )
+    unit = next((r["unit"] for r in cruise_results if r["unit"]), catalog.get("units"))
+    is_circular = UNDERWAY_VARIABLE_KIND.get(api_variable) == "circular"
+    notes = [
+        f"{r['cruise']}: dropped {r['dropped']} fill or out-of-range value(s) (e.g. -99)."
+        for r in cruise_results if r["dropped"]
+    ]
 
     if aggregation == "none":
         flat = [
-            {"cruise": r["cruise"], "vessel": r["vessel"], "date": v["date"], "value": v["value"], "latitude": v["latitude"], "longitude": v["longitude"]}
+            {"cruise": r["cruise"], "vessel": r["vessel"], "time": v["time"], "value": v["value"], "latitude": v["latitude"], "longitude": v["longitude"]}
             for r in cruise_results for v in r["values"]
         ]
-        data, has_more = _paginate(flat, 0, limit)
+        data = flat[:max(1, min(limit, 10_000))]
         notes.extend(note for note in (_truncation_note(len(data), len(flat), "limit"),) if note)
     elif aggregation == "cruise_mean":
         data = []
@@ -867,8 +690,10 @@ async def query_underway(
     if errors:
         notes.append(f"{len(errors)} cruise(s) failed to load and were skipped; see errors.")
 
+    build_id = next((r["build_id"] for r in cruise_results if r["build_id"]), None)
     return {
-        "variable": friendly_variable or variable,
+        "variable": api_variable,
+        "requested": variable,
         "unit": unit,
         "kind": "circular" if is_circular else "linear",
         "aggregation": aggregation,
@@ -876,39 +701,34 @@ async def query_underway(
         "notes": notes,
         "errors": errors,
         "data": data,
-        **_source("/api/underway/{cruise}.csv"),
+        **_source("/data/underway", params, build_id),
     }
 
 
 @mcp.tool()
 async def get_cruise_track(cruise_name: str) -> dict[str, Any]:
-    """Return the API's cruise track resource URL for client-side map use."""
-    path = f"/cruise/{quote(cruise_name, safe='')}/track/"
-    return {"cruise": cruise_name, "track_url": f"{API_BASE_URL}{path}", **_source(path)}
-
-
-def _row_value(row: dict[str, Any], *names: str) -> Any:
-    normalized = {str(key).lower().replace(" ", "_"): value for key, value in row.items()}
-    for name in names:
-        if name in normalized:
-            return normalized[name]
-    return None
+    """URLs for the cruise's underway track (time, latitude, longitude, ...) as CSV or Parquet."""
+    c = quote(cruise_name.lower(), safe="")
+    path = f"/files/{c}/underway.csv"
+    return {"cruise": cruise_name, "track_url": _url(path), "track_parquet_url": _url(f"/files/{c}/underway.parquet"),
+            **_source(path)}
 
 
 @mcp.tool()
 async def get_cruise_track_data(cruise_name: str, include_points: bool = True) -> dict[str, Any]:
     """Build GeoJSON cruise track data from the cruise's cast positions."""
-    rows = await _metadata(cruise_name)
+    params = {"cruise": cruise_name}
+    rows, meta = await _data_rows("casts", params)
     points = []
-    for row in rows:
-        latitude = _float(_row_value(row, "latitude", "lat"))
-        longitude = _float(_row_value(row, "longitude", "lon", "lng"))
+    for row in sorted(rows, key=lambda r: str(r.get("time") or "")):
+        latitude, longitude = _float(row.get("latitude")), _float(row.get("longitude"))
         if latitude is None or longitude is None:
             continue
         points.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [longitude, latitude]},
-            "properties": {"cruise": cruise_name, "cast": _row_value(row, "cast", "cast_number"), "date": _row_value(row, "date"), "nearest_station": _row_value(row, "nearest_station"), "distance_km": _float(_row_value(row, "distance_km"))},
+            "properties": {"cruise": cruise_name, "cast": row.get("cast"), "time": row.get("time"),
+                           "nearest_station": row.get("nearest_station"), "distance_km": _float(row.get("distance_km"))},
         })
     coordinates = [feature["geometry"]["coordinates"] for feature in points]
     features = []
@@ -916,24 +736,25 @@ async def get_cruise_track_data(cruise_name: str, include_points: bool = True) -
         features.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": coordinates}, "properties": {"cruise": cruise_name, "feature": "cast_track"}})
     if include_points:
         features.extend(points)
-    path = f"/api/ctd/metadata/{quote(cruise_name, safe='')}.csv"
-    return {"cruise": cruise_name, "format": "GeoJSON", "feature_count": len(features), "geojson": {"type": "FeatureCollection", "features": features}, "point_count": len(points), **_source(path)}
+    return {"cruise": cruise_name, "format": "GeoJSON", "feature_count": len(features),
+            "geojson": {"type": "FeatureCollection", "features": features}, "point_count": len(points),
+            **_source("/data/casts", params, meta.get("build_id"))}
 
 
 @mcp.tool()
 async def make_station_map(stations: list[str] | None = None, cruises: list[str] | None = None, include_tracks: bool = True) -> dict[str, Any]:
-    """Return station GeoJSON plus an optional Vega-Lite point-map specification."""
+    """Return station GeoJSON (current positions) plus an optional Vega-Lite point-map specification."""
     station_catalog = (await list_stations())["stations"]
     wanted = {station.upper() for station in stations} if stations else None
     station_features = []
     map_rows = []
     for row in station_catalog:
-        name = _row_value(row, "station", "name", "station_name")
-        latitude = _float(_row_value(row, "latitude", "lat"))
-        longitude = _float(_row_value(row, "longitude", "lon", "lng"))
-        if not name or latitude is None or longitude is None or (wanted and str(name).upper() not in wanted):
+        name = row.get("station")
+        latitude, longitude = _float(row.get("latitude")), _float(row.get("longitude"))
+        # Stations that moved have one row per position; map the current one.
+        if row.get("valid_to") or not name or latitude is None or longitude is None or (wanted and str(name).upper() not in wanted):
             continue
-        properties = {"station": name, "depth_m": _float(_row_value(row, "depth_m", "depth")), "comment": _row_value(row, "comment", "comments")}
+        properties = {"station": name, "depth_m": _float(row.get("depth_m")), "comment": row.get("comment")}
         station_features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [longitude, latitude]}, "properties": properties})
         map_rows.append({"station": name, "latitude": latitude, "longitude": longitude, "depth_m": properties["depth_m"]})
     track_results, track_errors = await _gather_partial(cruises or [], get_cruise_track_data, lambda cruise: cruise) if include_tracks and cruises else ([], [])
@@ -959,62 +780,57 @@ async def make_station_map(stations: list[str] | None = None, cruises: list[str]
                 "tooltip": [{"field": "station"}, {"field": "latitude"}, {"field": "longitude"}, {"field": "depth_m"}],
             },
         },
-        **_source("/api/stations/file.csv"),
+        **_source("/stations"),
     }
 
 
 @mcp.tool()
 async def get_dataset_schema(dataset: str, cruise_name: str) -> dict[str, Any]:
-    """Infer available columns and example values for a cruise dataset."""
-    if dataset == "ctd":
-        path = f"/api/ctd/casts/{quote(cruise_name, safe='')}.csv"
-    elif dataset == "underway":
-        path = f"/api/underway/get_column_headers/{quote(cruise_name, safe='')}"
-    else:
-        if dataset not in DATASET_PATHS:
-            raise ValueError(f"Unknown dataset {dataset!r}")
-        path = DATASET_PATHS[dataset].format(cruise=quote(cruise_name, safe=""))
-    rows = await (_json_or_text(path) if not path.endswith(".csv") else _csv(path))
-    if isinstance(rows, dict):
-        return {"dataset": dataset, "cruise": cruise_name, "schema": rows, **_source(path)}
-    headers = list(rows[0]) if rows else []
-    return {"dataset": dataset, "cruise": cruise_name, "columns": headers, "example": rows[0] if rows else {}, **_source(path)}
+    """Columns (with units) of a dataset, and how many rows the cruise has."""
+    name = DATASETS.get(dataset.lower(), dataset.lower())
+    datasets = {d["name"]: d for d in (await _cached("/datasets"))["datasets"]}
+    if name not in datasets:
+        raise ValueError(f"Unknown dataset {dataset!r}; choose from {', '.join(sorted(datasets))}")
+    cruise = await _cached(f"/cruises/{quote(cruise_name.lower(), safe='')}")
+    d = datasets[name]
+    return {"dataset": name, "cruise": cruise_name, "rows_for_cruise": cruise["datasets"].get(name, 0),
+            "keys": d["keys"], "filters": d["filters"], "columns": d["columns"], **_source("/datasets")}
 
 
 @mcp.tool()
 async def resolve_variable(name: str, cruise_name: str | None = None, dataset: str = "ctd") -> dict[str, Any]:
-    """Resolve a friendly variable name to candidate API columns."""
-    if dataset == "underway":
-        key = UNDERWAY_FRIENDLY_SYNONYMS.get(name.lower(), name.lower())
-        if cruise_name:
-            vessel = await _vessel_for_cruise(cruise_name)
-            candidates = [column for column, _ in UNDERWAY_VARIABLE_ALIASES.get(vessel, {}).get(key, [(name, 1.0)])]
-            schema = await get_dataset_schema(dataset, cruise_name)
-            available = schema.get("columns") or schema.get("schema", {}).get("metadata", {}).get("columns", [])
-            return {"requested": name, "resolved_variable": key, "vessel": vessel, "candidates": candidates, "available_matches": [c for c in candidates if c in available], "dataset": dataset}
-        candidates = sorted({column for family in UNDERWAY_VARIABLE_ALIASES.values() for column, _ in family.get(key, [])}) or [name]
-        return {"requested": name, "resolved_variable": key, "candidates": candidates, "available_matches": [], "dataset": dataset}
-    candidates = VARIABLE_ALIASES.get(name.lower(), [name])
-    available = None
-    if cruise_name:
-        schema = await get_dataset_schema(dataset, cruise_name)
-        available = schema.get("columns", [])
-        candidates = [column for column in candidates if column in available] or candidates
-    return {"requested": name, "candidates": candidates, "available_matches": [c for c in candidates if available and c in available], "dataset": dataset}
+    """Resolve a friendly variable name or alias to the API's variable, with units and which cruises have data."""
+    lookup = UNDERWAY_FRIENDLY_SYNONYMS.get(name.lower(), name) if dataset == "underway" else name
+    try:
+        body = await _cached(f"/variables/{quote(lookup, safe='')}")
+    except APIError as e:
+        return {"requested": name, "matches": [], "error": str(e), "dataset": dataset}
+    matches = [v for v in body["variables"] if dataset is None or dataset in v["datasets"]] or body["variables"]
+    out = []
+    for v in matches:
+        cruises = v.get("cruises", {}).get(dataset, [])
+        rec = {k: v.get(k) for k in ("name", "units", "description", "aliases", "datasets")}
+        rec["has_data_for_cruise"] = (cruise_name.lower() in cruises) if cruise_name else None
+        out.append(rec)
+    return {"requested": name, "dataset": dataset, "matches": out, "candidates": [m["name"] for m in out]}
 
 
 @mcp.resource("nes-lter://stations")
 async def stations_resource() -> str:
     """Station catalog as JSON for model reference."""
-    import json
     return json.dumps(await list_stations())
 
 
 @mcp.resource("nes-lter://variable-aliases")
 async def variable_aliases_resource() -> str:
-    """Friendly CTD and underway variable aliases."""
-    import json
-    return json.dumps({"ctd": VARIABLE_ALIASES, "underway": UNDERWAY_VARIABLE_ALIASES})
+    """CTD and underway variables: name -> units and accepted aliases, plus friendly underway synonyms."""
+    ctd, underway = await asyncio.gather(_cached("/variables", {"dataset": "ctd"}), _cached("/variables", {"dataset": "underway"}))
+    harmonized = set(UNDERWAY_FRIENDLY_SYNONYMS.values()) | set(UNDERWAY_VALID_RANGES)
+    return json.dumps({
+        "ctd": {v["name"]: {"units": v["units"], "aliases": v["aliases"]} for v in ctd["variables"]},
+        "underway": {v["name"]: {"units": v["units"], "aliases": v["aliases"]} for v in underway["variables"] if v["name"] in harmonized},
+        "underway_synonyms": UNDERWAY_FRIENDLY_SYNONYMS,
+    })
 
 
 @mcp.resource("nes-lter://vega-lite-viewer")

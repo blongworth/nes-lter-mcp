@@ -1,19 +1,35 @@
-from main import _cruise_matches
+import asyncio
+
+import main
 
 
-def test_cruise_without_filters_matches_full_catalog():
-    cruise = {
-        "name": "AR16",
-        "vessel_name": "Neil Armstrong",
-        "type": "Opportunistic",
-        "start_time": "2017-05-03T13:59:18.313Z",
-        "end_time": "2017-05-22T12:06:32.886Z",
-    }
-    assert _cruise_matches(cruise, None, None, None)
+def _capture_get(monkeypatch):
+    calls = []
+
+    async def fake_get(path, params=None):
+        calls.append((path, params))
+        return {"count": 0, "cruises": []}
+
+    monkeypatch.setattr(main, "_get", fake_get)
+    monkeypatch.setattr(main, "_cache", main._TTLCache())
+    return calls
 
 
-def test_cruise_season_filter_can_span_all_years():
-    cruise = {"type": "NES-LTER", "start_time": "2025-01-24T15:06:43Z"}
-    assert _cruise_matches(cruise, None, "winter", None)
-    assert _cruise_matches(cruise, 2025, "winter", "NES-LTER")
-    assert not _cruise_matches(cruise, 2024, "winter", None)
+def test_find_cruises_without_filters_requests_full_catalog(monkeypatch):
+    calls = _capture_get(monkeypatch)
+    asyncio.run(main.find_cruises())
+    path, params = calls[0]
+    assert path == "/cruises"
+    assert main._url(path, params).endswith("/cruises")  # no type=NES-LTER default: all cruise types
+
+
+def test_find_cruises_season_without_year_spans_all_years(monkeypatch):
+    calls = _capture_get(monkeypatch)
+    asyncio.run(main.find_cruises(season="winter"))
+    assert main._url(*calls[0]).endswith("/cruises?season=winter")
+
+
+def test_find_cruises_passes_all_filters(monkeypatch):
+    calls = _capture_get(monkeypatch)
+    asyncio.run(main.find_cruises(2025, "winter", "NES-LTER"))
+    assert main._url(*calls[0]).endswith("/cruises?year=2025&season=winter&type=NES-LTER")
